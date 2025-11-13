@@ -78,7 +78,7 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     lastActivityRef.current = 0;
     if (redirect) {
-      window.location.replace('/login');
+      window.location.replace('/');
     }
   }, []);
 
