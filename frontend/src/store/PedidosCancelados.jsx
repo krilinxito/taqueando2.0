@@ -27,7 +27,7 @@ import { obtenerPedidosDelDia } from '../API/pedidosApi';
 import ProductosModal from './ProductosModal';
 import PagosModal from './PagosModal';
 import PedidoTicketPDF from '../components/pdf/PedidoTicketPDF';
-import contieneApi from '../API/contieneApi';
+import contieneApi from '../API/contieneAPi';
 import { pagoApi } from '../API/pagoApi';
 import MoneyIcon from '@mui/icons-material/Money';
 import CreditCardIcon from '@mui/icons-material/CreditCard';

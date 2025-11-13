@@ -1,69 +1,71 @@
 import React from 'react';
 import { Page, Text, View, Document, StyleSheet } from '@react-pdf/renderer';
 
+const rollWidth = 226.77; // 80mm en puntos
+
 const styles = StyleSheet.create({
   page: {
     flexDirection: 'column',
     backgroundColor: '#ffffff',
-    padding: 30,
+    paddingHorizontal: 12,
+    paddingVertical: 16,
   },
   header: {
-    marginBottom: 20,
+    marginBottom: 12,
     textAlign: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#000',
+    borderBottomStyle: 'dashed',
+    paddingBottom: 8
   },
   title: {
-    fontSize: 24,
-    marginBottom: 10,
+    fontSize: 14,
+    fontWeight: 'bold',
+    textTransform: 'uppercase'
   },
   subtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 20,
+    fontSize: 10,
+    color: '#444',
+    marginTop: 2
   },
   section: {
-    margin: 10,
-    padding: 10,
-    flexGrow: 1,
+    marginBottom: 10,
+  },
+  sectionTitle: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    marginBottom: 6
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    borderBottomStyle: 'solid',
-    paddingVertical: 5,
+    paddingVertical: 3,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#e0e0e0',
+    borderBottomStyle: 'solid'
   },
   label: {
-    fontSize: 12,
+    fontSize: 9,
   },
   value: {
-    fontSize: 12,
+    fontSize: 9,
     fontWeight: 'bold',
   },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 2,
+    paddingVertical: 4,
+    marginTop: 6,
+    borderTopWidth: 0.8,
     borderTopColor: '#000',
-    borderTopStyle: 'solid',
+    borderTopStyle: 'solid'
   },
-  totalLabel: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  totalValue: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  arqueoSection: {
-    marginTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#000',
-    borderTopStyle: 'solid',
-    paddingTop: 10,
-  },
+  footerNote: {
+    marginTop: 12,
+    textAlign: 'center',
+    fontSize: 8,
+    color: '#555'
+  }
 });
 
 const ResumenCajaPDF = ({ resumen, conteo, cajaChica, diferencia }) => {
@@ -78,9 +80,15 @@ const ResumenCajaPDF = ({ resumen, conteo, cajaChica, diferencia }) => {
     }, 0);
   };
 
+  const conteoEntries = Object.entries(conteo || {});
+  const dynamicHeight = Math.max(
+    400,
+    360 + conteoEntries.length * 20
+  );
+
   return (
     <Document>
-      <Page size="A4" style={styles.page}>
+      <Page size={[rollWidth, dynamicHeight]} style={styles.page}>
         <View style={styles.header}>
           <Text style={styles.title}>Resumen de Caja</Text>
           <Text style={styles.subtitle}>
@@ -90,7 +98,7 @@ const ResumenCajaPDF = ({ resumen, conteo, cajaChica, diferencia }) => {
 
         {/* Resumen de Ventas */}
         <View style={styles.section}>
-          <Text style={styles.totalLabel}>Resumen de Ventas</Text>
+          <Text style={styles.sectionTitle}>Resumen de Ventas</Text>
           <View style={styles.row}>
             <Text style={styles.label}>Total Efectivo:</Text>
             <Text style={styles.value}>${formatMonto(resumen.totalEfectivo)}</Text>
@@ -108,15 +116,15 @@ const ResumenCajaPDF = ({ resumen, conteo, cajaChica, diferencia }) => {
             <Text style={styles.value}>${formatMonto(resumen.totalOnline)}</Text>
           </View>
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total del Día:</Text>
-            <Text style={styles.totalValue}>${formatMonto(resumen.totalDia)}</Text>
+            <Text style={styles.label}>Total del Día:</Text>
+            <Text style={styles.value}>${formatMonto(resumen.totalDia)}</Text>
           </View>
         </View>
 
         {/* Arqueo de Caja */}
-        <View style={styles.arqueoSection}>
-          <Text style={styles.totalLabel}>Arqueo de Caja</Text>
-          {Object.entries(conteo).map(([denominacion, cantidad]) => (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Arqueo de Caja</Text>
+          {conteoEntries.map(([denominacion, cantidad]) => (
             <View style={styles.row} key={denominacion}>
               <Text style={styles.label}>
                 {denominacion >= 5 ? 'Billete' : 'Moneda'} de ${denominacion}:
@@ -125,8 +133,8 @@ const ResumenCajaPDF = ({ resumen, conteo, cajaChica, diferencia }) => {
             </View>
           ))}
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total Contado:</Text>
-            <Text style={styles.totalValue}>${formatMonto(calcularTotalConteo())}</Text>
+            <Text style={styles.label}>Total Contado:</Text>
+            <Text style={styles.value}>${formatMonto(calcularTotalConteo())}</Text>
           </View>
           <View style={styles.row}>
             <Text style={styles.label}>Caja Chica:</Text>
@@ -137,6 +145,10 @@ const ResumenCajaPDF = ({ resumen, conteo, cajaChica, diferencia }) => {
             <Text style={styles.value}>${formatMonto(diferencia)}</Text>
           </View>
         </View>
+
+        <Text style={styles.footerNote}>
+          Impreso automáticamente - Formato rollo 80mm
+        </Text>
       </Page>
     </Document>
   );

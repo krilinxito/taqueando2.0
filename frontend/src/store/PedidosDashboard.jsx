@@ -41,7 +41,7 @@ import { useAuth } from '../context/AuthContext';
 
 // Importaciones corregidas
 import { pagoApi } from '../API/pagoApi';
-import contieneApi from '../API/contieneApi';
+import contieneApi from '../API/contieneAPi';
 import { crearPedido, obtenerPedidosDelDia, editarPedido } from '../API/pedidosApi';
 import { obtenerProductos } from '../API/productosApi';
 import ProductosModal from './ProductosModal';

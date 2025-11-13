@@ -61,6 +61,8 @@ const AppRoutes = () => {
           <UserLayout />
         </ProtectedRoute>
       }>
+        <Route index element={<AdminIdle />} />
+        <Route path="inicio" element={<AdminIdle />} />
         <Route path="pedidos-activos" element={<PedidosDashboard />} />
         <Route path="pedidos-cancelados" element={<PedidosCancelados />} />
         <Route path="resumen-caja" element={<ResumenCaja />} />

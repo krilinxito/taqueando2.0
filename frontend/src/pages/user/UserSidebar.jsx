@@ -10,6 +10,7 @@ import {
   Box
 } from '@mui/material';
 import {
+  Home,
   ListAlt,
   Settings,
   History,
@@ -26,6 +27,17 @@ const UserSidebar = () => {
       borderRight: '1px solid rgba(0, 0, 0, 0.12)'
     }}>
       <List>
+        <NavLink to="/usuario/inicio" style={{ textDecoration: 'none', color: 'inherit' }}>
+          {({ isActive }) => (
+            <ListItemButton selected={isActive}>
+              <ListItemIcon>
+                <Home />
+              </ListItemIcon>
+              <ListItemText primary="Inicio" />
+            </ListItemButton>
+          )}
+        </NavLink>
+
         <NavLink to="/usuario/pedidos-activos" style={{ textDecoration: 'none', color: 'inherit' }}>
           {({ isActive }) => (
             <ListItemButton selected={isActive}>
