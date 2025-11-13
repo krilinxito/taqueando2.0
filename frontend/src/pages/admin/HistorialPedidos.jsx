@@ -31,7 +31,7 @@ import PaymentIcon from '@mui/icons-material/Payment';
 import { obtenerTodosLosPedidos } from '../../API/pedidosApi';
 import ProductosModal from '../../store/ProductosModal';
 import PagosModal from '../../store/PagosModal';
-import contieneApi from '../../API/contieneAPi';
+import contieneApi from '../../API/contieneApi';
 import { pagoApi } from '../../API/pagoApi';
 
 const HistorialPedidos = () => {
