@@ -40,8 +40,8 @@ import { PDFViewer } from '@react-pdf/renderer';
 import { useAuth } from '../context/AuthContext';
 
 // Importaciones corregidas
-import contieneApi from '../API/contieneApi';
 import { pagoApi } from '../API/pagoApi';
+import contieneApi from '../API/contieneApi';
 import { crearPedido, obtenerPedidosDelDia, editarPedido } from '../API/pedidosApi';
 import { obtenerProductos } from '../API/productosApi';
 import ProductosModal from './ProductosModal';
