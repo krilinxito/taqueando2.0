@@ -17,7 +17,7 @@ const app = express();
 
 const allowedOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
-  : ['http://localhost:5173'];
+  : ['http://localhost:5173', process.env.FRONTEND_URL];
 
 const corsOptions = {
   origin(origin, callback) {
