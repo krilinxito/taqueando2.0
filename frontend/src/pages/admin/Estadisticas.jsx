@@ -163,14 +163,6 @@ const Estadisticas = () => {
       formatter: formatCurrency,
       helper: `Promedio diario: ${formatCurrency(resumen.promedioDiario || 0)}`,
       trend: null
-    },
-    {
-      key: 'usuarios',
-      title: 'Usuarios activos',
-      value: resumen.usuariosActivos,
-      formatter: (v) => v || 0,
-      helper: 'Usuarios activos esta semana',
-      trend: null
     }
   ];
 
