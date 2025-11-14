@@ -54,6 +54,7 @@ const Register = () => {
       setTimeout(() => navigate('/login'), 1800);
     } catch (err) {
       const message =
+        err.response?.data?.error ||
         err.response?.data?.message ||
         err.message ||
         'Ocurrió un error al registrarse';

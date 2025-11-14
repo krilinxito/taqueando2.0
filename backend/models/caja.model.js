@@ -2,18 +2,57 @@ const pool = require('../config/db');
 
 const TZ = 'America/La_Paz';
 
-const toMySQLDateTime = (date) => date.toISOString().slice(0, 19).replace('T', ' ');
+const pad = (value) => String(value).padStart(2, '0');
+
+const buildDateString = ({ year, month, day }) =>
+  `${year}-${pad(month)}-${pad(day)} 00:00:00`;
+
+const getNextDay = ({ year, month, day }) => {
+  const daysInMonth = new Date(year, month, 0).getDate();
+
+  if (day < daysInMonth) return { year, month, day: day + 1 };
+  if (month < 12) return { year, month: month + 1, day: 1 };
+
+  return { year: year + 1, month: 1, day: 1 };
+};
+
+const getDatePartsForTimezone = (date) => {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+
+  const [year, month, day] = formatter.format(date).split('-').map(Number);
+  return { year, month, day };
+};
+
+const parseRawDate = (rawDate) => {
+  if (!rawDate) return getDatePartsForTimezone(new Date());
+
+  if (typeof rawDate === 'string') {
+    const match = rawDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (match) {
+      return {
+        year: Number(match[1]),
+        month: Number(match[2]),
+        day: Number(match[3]),
+      };
+    }
+  }
+
+  return getDatePartsForTimezone(new Date(rawDate));
+};
 
 const getDateRange = (rawDate) => {
-  const date = rawDate ? new Date(rawDate) : new Date();
-  const inicio = new Date(date);
-  inicio.setHours(0, 0, 0, 0);
-  const fin = new Date(inicio);
-  fin.setDate(fin.getDate() + 1);
+  const current = parseRawDate(rawDate);
+  const next = getNextDay(current);
+  const etiqueta = `${current.year}-${pad(current.month)}-${pad(current.day)}`;
   return {
-    inicio: toMySQLDateTime(inicio),
-    fin: toMySQLDateTime(fin),
-    etiqueta: inicio.toISOString().slice(0, 10),
+    inicio: buildDateString(current),
+    fin: buildDateString(next),
+    etiqueta,
   };
 };
 
