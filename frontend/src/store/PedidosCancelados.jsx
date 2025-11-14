@@ -68,6 +68,34 @@ const PedidosCancelados = () => {
     });
   };
 
+  const obtenerPartesFechaLaPaz = (valor) => {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/La_Paz',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+
+    const [year, month, day] = formatter.format(new Date(valor)).split('-').map(Number);
+    return { year, month, day };
+  };
+
+  const esHoyEnLaPaz = (fecha) => {
+    try {
+      const pedidoParts = obtenerPartesFechaLaPaz(fecha);
+      const hoyParts = obtenerPartesFechaLaPaz(new Date());
+
+      return (
+        pedidoParts.year === hoyParts.year &&
+        pedidoParts.month === hoyParts.month &&
+        pedidoParts.day === hoyParts.day
+      );
+    } catch (error) {
+      console.error('Error procesando fecha del pedido:', error);
+      return false;
+    }
+  };
+
   const fetchPedidos = useCallback(async () => {
     if (loading) return;
     
@@ -81,29 +109,9 @@ const PedidosCancelados = () => {
       }
 
       // Filtrar solo los pedidos cancelados del día
-      const pedidosCancelados = response.data.data.filter(pedido => {
-        try {
-          // Convertir la fecha del pedido a la zona horaria de La Paz
-        const fechaPedido = new Date(pedido.fecha);
-          fechaPedido.setHours(fechaPedido.getHours() - 4); // Ajuste manual a UTC-4 (La Paz)
-        
-          // Obtener la fecha actual en La Paz
-          const ahora = new Date();
-          const hoyLaPaz = new Date(ahora);
-          hoyLaPaz.setHours(ahora.getHours() - 4); // Ajuste manual a UTC-4 (La Paz)
-        
-        // Comparar solo la fecha (ignorar la hora)
-        const esMismoDia = 
-            fechaPedido.getFullYear() === hoyLaPaz.getFullYear() &&
-            fechaPedido.getMonth() === hoyLaPaz.getMonth() &&
-            fechaPedido.getDate() === hoyLaPaz.getDate();
-        
-        return pedido.estado === 'cancelado' && esMismoDia;
-        } catch (error) {
-          console.error('Error procesando fecha del pedido:', error);
-          return false;
-        }
-      });
+      const pedidosCancelados = response.data.data.filter(
+        (pedido) => pedido.estado === 'cancelado' && esHoyEnLaPaz(pedido.fecha)
+      );
 
       // Obtener detalles adicionales para cada pedido
       const pedidosConDetalles = await Promise.all(
