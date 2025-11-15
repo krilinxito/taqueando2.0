@@ -53,7 +53,7 @@ const getIngresosPorMetodo = async () => {
   }
 };
 
-const getProductosMasVendidos = async (limite = 10) => {
+const getProductosMasVendidos = async (limite = 50) => {
   try {
     const query = `
       SELECT 
