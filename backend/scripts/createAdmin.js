@@ -6,9 +6,9 @@ async function createAdminUser() {
   try {
     // Datos del usuario admin
     const adminData = {
-      nombre: 'maxi',
-      email: 'barryallen4207@gmail.com',
-      password: 'admin123', 
+      nombre: 'prueba',
+      email: 'prueba@gmail.com',
+      password: '123456789', 
       rol: 'admin'
     };
 
