@@ -1,23 +1,13 @@
 import axios from "./axios";
 
-/* ============================================================
-   🔐 Headers de autenticación
-============================================================ */
-const getAuthHeaders = () => ({
-  headers: {
-    Authorization: `Bearer ${localStorage.getItem("token")}`,
-  },
-});
-
-/* ============================================================
-   🌐 1) Obtener TODAS las estadísticas del dashboard
-   /estadisticas?periodo=day|week|month
-============================================================ */
-export const obtenerTodasLasEstadisticas = async (periodo = "day") => {
+export const obtenerTodasLasEstadisticas = async (fechaInicio, fechaFin) => {
   try {
+    const params = new URLSearchParams();
+    if (fechaInicio) params.set('fechaInicio', fechaInicio);
+    if (fechaFin) params.set('fechaFin', fechaFin);
+    const qs = params.toString();
     const { data } = await axios.get(
-      `/estadisticas?periodo=${periodo}`,
-      getAuthHeaders()
+      `/estadisticas${qs ? `?${qs}` : ''}`
     );
 
     return normalizarEstadisticas(data);
@@ -27,15 +17,10 @@ export const obtenerTodasLasEstadisticas = async (periodo = "day") => {
   }
 };
 
-/* ============================================================
-   📜 2) Obtener ingresos históricos paginados
-   /estadisticas/ingresos-historicos?pagina=1&limite=10
-============================================================ */
 export const obtenerIngresosHistoricos = async (pagina = 1, limite = 10) => {
   try {
     const { data } = await axios.get(
-      `/estadisticas/ingresos-historicos?pagina=${pagina}&limite=${limite}`,
-      getAuthHeaders()
+      `/estadisticas/ingresos-historicos?pagina=${pagina}&limite=${limite}`
     );
 
     const ingresos =
@@ -55,9 +40,6 @@ export const obtenerIngresosHistoricos = async (pagina = 1, limite = 10) => {
   }
 };
 
-/* ============================================================
-   🔧 Normalizador del dashboard
-============================================================ */
 function normalizarEstadisticas(data) {
   const toNumber = (value) => (value !== undefined && value !== null ? Number(value) : 0);
   const resumen = data.resumenGeneral || {};
@@ -70,16 +52,11 @@ function normalizarEstadisticas(data) {
       usuariosActivos: toNumber(resumen.usuarios_activos),
       variacionIngresos: Number(resumen.variacion_ingresos || 0),
       variacionPedidos: Number(resumen.variacion_pedidos || 0),
+      variacionTicket: Number(resumen.variacion_ticket || 0),
       promedioDiario: toNumber(resumen.promedio_diario),
       mejorDia: resumen.mejor_dia || null,
       horaPico: resumen.hora_pico || null,
     },
-
-    ingresos: (data.ingresosSemanales || []).map((ing) => ({
-      fecha: ing.fecha,
-      total: toNumber(ing.total),
-      total_pedidos: toNumber(ing.total_pedidos),
-    })),
 
     tendencia: (data.tendenciaMensual || []).map((punto) => ({
       fecha: punto.fecha,
@@ -105,11 +82,21 @@ function normalizarEstadisticas(data) {
       total_ventas: toNumber(v.total_ventas),
     })),
 
-    comparativaSemanal: (data.comparativaSemanal || []).map((periodo) => ({
-      periodo: periodo.periodo,
-      total_pedidos: toNumber(periodo.total_pedidos),
-      total_ventas: toNumber(periodo.total_ventas),
-      usuarios_activos: toNumber(periodo.usuarios_activos),
+    ventasPorDiaSemana: (data.ventasPorDiaSemana || []).map((d) => ({
+      dia: Number(d.dia),
+      nombre_dia: d.nombre_dia,
+      total_pedidos: toNumber(d.total_pedidos),
+      total_ventas: toNumber(d.total_ventas),
+    })),
+
+    gananciasPorSemana: (data.gananciasPorSemana || []).map((s) => ({
+      anio: Number(s.anio),
+      mes: Number(s.mes),
+      semana: Number(s.semana),
+      fecha_inicio: s.fecha_inicio,
+      fecha_fin: s.fecha_fin,
+      total_pedidos: toNumber(s.total_pedidos),
+      total_ventas: toNumber(s.total_ventas),
     })),
 
     tiempoPromedioCierre: toNumber(data.tiempoPromedioCierre?.tiempo_promedio_minutos),
@@ -122,9 +109,6 @@ function normalizarEstadisticas(data) {
   };
 }
 
-/* ============================================================
-   🎨 Utilidades visuales (mantenidas)
-============================================================ */
 export const formatearMonto = (monto) =>
   isNaN(Number(monto)) ? "0.00" : Number(monto).toFixed(2);
 

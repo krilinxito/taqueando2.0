@@ -127,7 +127,7 @@ const UserConfig = () => {
   return (
     <Box sx={{ maxWidth: 800, mx: 'auto', p: 3 }}>
       {/* Información del Usuario */}
-      <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+      <Paper elevation={0} sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
           <Avatar
             sx={{ 
@@ -156,7 +156,7 @@ const UserConfig = () => {
       </Paper>
 
       {/* Configuraciones */}
-      <Paper elevation={3} sx={{ mb: 3 }}>
+      <Paper elevation={0} sx={{ mb: 3 }}>
         <List>
           <ListItem>
             <ListItemIcon>
@@ -176,7 +176,7 @@ const UserConfig = () => {
       </Paper>
 
       {/* Seguridad */}
-      <Paper elevation={3} sx={{ p: 3 }}>
+      <Paper elevation={0} sx={{ p: 3 }}>
         <Typography variant="h6" gutterBottom>
           Seguridad
         </Typography>

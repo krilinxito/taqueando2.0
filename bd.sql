@@ -105,3 +105,9 @@ CREATE TABLE `pagos` (
   KEY `id_pedido` (`id_pedido`),
   CONSTRAINT `pagos_ibfk_1` FOREIGN KEY (`id_pedido`) REFERENCES `pedidos` (`id`)
 );
+
+-- Índices de performance (ejecutar en producción si no existen)
+ALTER TABLE pedidos ADD INDEX idx_estado (estado);
+ALTER TABLE pedidos ADD INDEX idx_fecha (fecha);
+ALTER TABLE contiene ADD INDEX idx_pedido_anulado (id_pedido, anulado);
+ALTER TABLE pagos ADD INDEX idx_pedido_metodo (id_pedido, metodo);

@@ -8,6 +8,7 @@ const {
   actualizarProductoController,
   eliminarProductoController
 } = require('../controllers/producto.controller.js');
+const { verificarToken, soloAdmin } = require('../middlewares/auth.middleware.js');
 
 // Rutas CRUD para productos
 
@@ -18,12 +19,12 @@ router.get('/', obtenerTodosLosProductosController);
 router.get('/:id', obtenerProductoPorIdController);
 
 // POST /api/productos - Crear un nuevo producto
-router.post('/', crearProductoController);
+router.post('/', [verificarToken, soloAdmin], crearProductoController);
 
 // PUT /api/productos/:id - Actualizar un producto completo
-router.put('/:id', actualizarProductoController);
+router.put('/:id', [verificarToken, soloAdmin], actualizarProductoController);
 
 // DELETE /api/productos/:id - Eliminar un producto
-router.delete('/:id', eliminarProductoController);
+router.delete('/:id', [verificarToken, soloAdmin], eliminarProductoController);
 
 module.exports = router;

@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
-  Container,
   Box,
   Typography,
   TextField,
   Button,
-  CircularProgress
+  CircularProgress,
+  Paper
 } from '@mui/material';
 import { useAuth } from '../../context/AuthContext';
 
@@ -65,10 +65,19 @@ const Register = () => {
   };
 
   return (
-    <Container maxWidth="xs">
-      <Box sx={{ mt: 8, textAlign: 'center' }}>
-        <Typography variant="h4" gutterBottom>
-          Crear cuenta
+    <Box
+      sx={{
+        minHeight: '100vh',
+        bgcolor: 'background.default',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        p: 2,
+      }}
+    >
+      <Paper sx={{ maxWidth: 400, width: '100%', p: 4, textAlign: 'center' }}>
+        <Typography variant="h4" color="primary.main" gutterBottom>
+          Taqueando
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
           Completa tus datos para empezar a usar Taqueando.
@@ -133,21 +142,23 @@ const Register = () => {
           <Button
             type="submit"
             variant="contained"
+            color="secondary"
             fullWidth
             disabled={isSubmitting}
+            sx={{ mt: 1, mb: 2 }}
           >
             {isSubmitting ? <CircularProgress size={24} /> : 'Registrarse'}
           </Button>
         </form>
 
-        <Typography sx={{ mt: 3 }}>
+        <Typography variant="body2" color="text.secondary">
           ¿Ya tienes cuenta?{' '}
           <Button component={Link} to="/login" size="small">
             Inicia sesión
           </Button>
         </Typography>
-      </Box>
-    </Container>
+      </Paper>
+    </Box>
   );
 };
 

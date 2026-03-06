@@ -15,7 +15,6 @@ export const AuthProvider = ({ children }) => {
   const verifyToken = useCallback(async (token) => {
     try {
       // Primero intentamos decodificar el token localmente
-      console.log(token);
       const decodedToken = jwtDecode(token);
       
       // Verificar si el token ha expirado
@@ -121,11 +120,20 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     if (!user) return;
 
+    let mouseMoveTimer = null;
+    const handleMouseMove = () => {
+      if (mouseMoveTimer) return;
+      mouseMoveTimer = setTimeout(() => {
+        updateActivity();
+        mouseMoveTimer = null;
+      }, 5000);
+    };
+
     const handleActivity = () => {
       updateActivity();
     };
 
-    window.addEventListener('mousemove', handleActivity);
+    window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('keydown', handleActivity);
     window.addEventListener('click', handleActivity);
     window.addEventListener('scroll', handleActivity);
@@ -138,11 +146,12 @@ export const AuthProvider = ({ children }) => {
     }, 60000); // Revisar cada minuto
 
     return () => {
-      window.removeEventListener('mousemove', handleActivity);
+      window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('keydown', handleActivity);
       window.removeEventListener('click', handleActivity);
       window.removeEventListener('scroll', handleActivity);
       clearInterval(checkActivity);
+      if (mouseMoveTimer) clearTimeout(mouseMoveTimer);
     };
   }, [user, updateActivity, logout]);
 

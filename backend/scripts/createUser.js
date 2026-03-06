@@ -4,19 +4,23 @@ const bcrypt = require('bcrypt');
 const pool = require('../config/db');
 
 async function createUser() {
-  try {
-    const userData = {
-      nombre: 'user1',
-      email: 'user@gmail.com',
-      password: 'Omegalul123',
-      rol: 'empleado'
-    };
+  const nombre = process.argv[2] || process.env.USER_NOMBRE;
+  const email = process.argv[3] || process.env.USER_EMAIL;
+  const password = process.argv[4] || process.env.USER_PASSWORD;
+  const rol = process.argv[5] || 'empleado';
 
-    const hash = await bcrypt.hash(userData.password, 10);
+  if (!nombre || !email || !password) {
+    console.error('Uso: node createUser.js <nombre> <email> <password> [rol]');
+    console.error('O configurar USER_NOMBRE, USER_EMAIL, USER_PASSWORD en .env');
+    process.exit(1);
+  }
+
+  try {
+    const hash = await bcrypt.hash(password, 10);
 
     const [result] = await pool.execute(
       'INSERT INTO usuarios (nombre, email, password_hash, rol) VALUES (?, ?, ?, ?)',
-      [userData.nombre, userData.email, hash, userData.rol]
+      [nombre, email, hash, rol]
     );
 
     console.log('Usuario creado:', result.insertId);
@@ -24,7 +28,7 @@ async function createUser() {
     process.exit(0);
 
   } catch (error) {
-    console.error('Error al crear usuario:', error);
+    console.error('Error al crear usuario:', error.message);
     process.exit(1);
   }
 }

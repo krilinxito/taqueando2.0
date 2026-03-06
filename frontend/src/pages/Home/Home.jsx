@@ -6,7 +6,7 @@ const Home = () => {
     <Box
       sx={{
         minHeight: '100vh',
-        backgroundColor: '#e5f1ea',
+        bgcolor: 'background.default',
         display: 'flex',
         alignItems: 'center',
         py: 6
@@ -14,20 +14,18 @@ const Home = () => {
     >
       <Container maxWidth="sm">
         <Card
-          elevation={0}
           sx={{
-            borderRadius: 3,
             p: 4,
-            border: '1px solid #1a5c46',
-            backgroundColor: '#0f3d2e'
+            border: 1,
+            borderColor: 'primary.light',
+            bgcolor: 'primary.main',
           }}
         >
           <CardContent sx={{ textAlign: 'center' }}>
             <Typography
               variant="h4"
               sx={{
-                fontWeight: 600,
-                color: '#f8f8f8',
+                color: 'primary.contrastText',
                 mb: 2
               }}
             >
@@ -47,18 +45,11 @@ const Home = () => {
             <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mb: 3 }}>
               <Button
                 variant="contained"
+                color="secondary"
                 size="large"
                 component={Link}
                 to="/login"
-                sx={{
-                  backgroundColor: '#24a869',
-                  px: 4,
-                  py: 1.1,
-                  borderRadius: 2,
-                  '&:hover': {
-                    backgroundColor: '#1c8251'
-                  }
-                }}
+                sx={{ px: 4, py: 1.1 }}
               >
                 Iniciar sesión
               </Button>
@@ -71,9 +62,8 @@ const Home = () => {
                 sx={{
                   px: 4,
                   py: 1.1,
-                  borderRadius: 2,
                   borderColor: 'rgba(255,255,255,0.5)',
-                  color: '#f8f8f8',
+                  color: 'primary.contrastText',
                   '&:hover': {
                     borderColor: '#f8f8f8',
                     backgroundColor: 'rgba(255,255,255,0.08)'
@@ -86,9 +76,7 @@ const Home = () => {
 
             <Typography
               variant="body2"
-              sx={{
-                color: 'rgba(255,255,255,0.6)'
-              }}
+              sx={{ color: 'rgba(255,255,255,0.6)' }}
             >
               Sistema interno para el equipo de Taqueando.
             </Typography>

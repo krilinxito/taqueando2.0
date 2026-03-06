@@ -1,4 +1,5 @@
 import axios from './axios';
+import { formatearFechaHora } from '../utils/fecha';
 
 // =========================
 //   🚀 OBTENER RESUMEN
@@ -100,22 +101,7 @@ export const formatearMonto = (monto) => {
   return isNaN(numero) ? '0.00' : numero.toFixed(2);
 };
 
-export const formatearFecha = (fecha) => {
-  try {
-    return new Date(fecha).toLocaleString('es-BO', {
-      timeZone: 'America/La_Paz',
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
-  } catch (error) {
-    console.error('Error formateando fecha:', error);
-    return 'Fecha inválida';
-  }
-};
+export const formatearFecha = formatearFechaHora;
 
 // =========================
 //   🎨 COLORES

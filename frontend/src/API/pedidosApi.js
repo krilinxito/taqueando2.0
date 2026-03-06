@@ -4,6 +4,9 @@ import axios from './axios';
 export const crearPedido = (pedidoData) => 
   axios.post('/pedidos', pedidoData);
   
+export const obtenerPedidosDiaConDetalles = (estado) =>
+  axios.get('/pedidos/dia-completo', estado ? { params: { estado } } : undefined);
+
 export const obtenerPedidosDelDia = async () => {
   try {
     const response = await axios.get('/pedidos/pedidos-dia');

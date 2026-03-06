@@ -57,32 +57,32 @@ const getDateRange = (rawDate) => {
 };
 
 const rangoSQL = `
-  WHERE CONVERT_TZ(p.fecha,'UTC',?) >= ?
-    AND CONVERT_TZ(p.fecha,'UTC',?) < ?
+  WHERE CONVERT_TZ(p.fecha,'+00:00','-04:00') >= ?
+    AND CONVERT_TZ(p.fecha,'+00:00','-04:00') < ?
 `;
 
-const rangoParams = (inicio, fin) => [TZ, inicio, TZ, fin];
+const rangoParams = (inicio, fin) => [inicio, fin];
 
 const obtenerDatosBase = async (inicio, fin) => {
   const params = rangoParams(inicio, fin);
 
   const [totales] = await pool.query(
     `
-      SELECT 
-        DATE(CONVERT_TZ(p.fecha,'UTC',?)) AS fecha,
+      SELECT
+        DATE(CONVERT_TZ(p.fecha,'+00:00','-04:00')) AS fecha,
         COUNT(DISTINCT p.id) AS total_pedidos,
         COALESCE(SUM(pg.monto), 0) AS total_general
       FROM pedidos p
       LEFT JOIN pagos pg ON pg.id_pedido = p.id
       ${rangoSQL}
-      GROUP BY DATE(CONVERT_TZ(p.fecha,'UTC',?))
+      GROUP BY DATE(CONVERT_TZ(p.fecha,'+00:00','-04:00'))
     `,
-    [TZ, ...params, TZ]
+    [...params]
   );
 
   const [porMetodo] = await pool.query(
     `
-      SELECT 
+      SELECT
         COALESCE(pg.metodo, 'desconocido') AS metodo,
         COUNT(pg.id) AS cantidad,
         COALESCE(SUM(pg.monto), 0) AS total
@@ -101,7 +101,7 @@ const obtenerDatosBase = async (inicio, fin) => {
         pg.id_pedido,
         pg.monto,
         pg.metodo,
-        DATE_FORMAT(CONVERT_TZ(pg.hora,'UTC',?), '%Y-%m-%d %H:%i:%s') AS hora,
+        DATE_FORMAT(CONVERT_TZ(pg.hora,'+00:00','-04:00'), '%Y-%m-%d %H:%i:%s') AS hora,
         p.estado AS estado_pedido,
         p.nombre AS nombre_pedido,
         u.nombre AS nombre_usuario
@@ -111,7 +111,7 @@ const obtenerDatosBase = async (inicio, fin) => {
       ${rangoSQL}
       ORDER BY pg.hora ASC
     `,
-    [TZ, ...params]
+    [...params]
   );
 
   const totalesRow = totales[0] || {};

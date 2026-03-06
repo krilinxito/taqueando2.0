@@ -3,39 +3,35 @@ const pool = require('../config/db');
 require("dotenv").config({ path: __dirname + '/../.env' });
 
 async function createAdminUser() {
+  const nombre = process.argv[2] || process.env.ADMIN_NOMBRE;
+  const email = process.argv[3] || process.env.ADMIN_EMAIL;
+  const password = process.argv[4] || process.env.ADMIN_PASSWORD;
+
+  if (!nombre || !email || !password) {
+    console.error('Uso: node createAdmin.js <nombre> <email> <password>');
+    console.error('O configurar ADMIN_NOMBRE, ADMIN_EMAIL, ADMIN_PASSWORD en .env');
+    process.exit(1);
+  }
+
   try {
-    // Datos del usuario admin
-    const adminData = {
-      nombre: 'prueba',
-      email: 'prueba@gmail.com',
-      password: '123456789', 
-      rol: 'admin'
-    };
-
-    // Generar hash de la contraseña
     const saltRounds = 10;
-    const password_hash = await bcrypt.hash(adminData.password, saltRounds);
+    const password_hash = await bcrypt.hash(password, saltRounds);
 
-    // Insertar el usuario en la base de datos
     const [result] = await pool.execute(
       'INSERT INTO usuarios (nombre, email, password_hash, rol) VALUES (?, ?, ?, ?)',
-      [adminData.nombre, adminData.email, password_hash, adminData.rol]
+      [nombre, email, password_hash, 'admin']
     );
 
     console.log('Usuario admin creado exitosamente');
     console.log('ID:', result.insertId);
-    console.log('Email:', adminData.email);
-    console.log('Contraseña (sin hash):', adminData.password);
-    console.log('Hash generado:', password_hash);
+    console.log('Email:', email);
 
-    // Cerrar la conexión
     await pool.end();
-    
     process.exit(0);
   } catch (error) {
-    console.error('Error al crear usuario admin:', error);
+    console.error('Error al crear usuario admin:', error.message);
     process.exit(1);
   }
 }
 
-createAdminUser(); 
+createAdminUser();

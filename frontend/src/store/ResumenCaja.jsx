@@ -13,8 +13,6 @@ import {
   Button,
   Divider,
   Snackbar,
-  Dialog,
-  DialogContent,
   FormControlLabel,
   Switch,
 } from '@mui/material';
@@ -26,20 +24,16 @@ import CreditCardIcon from '@mui/icons-material/CreditCard';
 import QrCodeIcon from '@mui/icons-material/QrCode';
 import OnlinePaymentIcon from '@mui/icons-material/Language';
 import SaveIcon from '@mui/icons-material/Save';
-import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
-
-import { PDFViewer } from '@react-pdf/renderer';
 
 import {
   obtenerResumenDeCaja,
 } from '../API/cajaApi';
+import { formatearFechaHora } from '../utils/fecha';
 
 import {
   crearArqueo,
   obtenerUltimoArqueo
 } from '../API/arqueoApi';
-
-import ResumenCajaPDF from '../components/pdf/ResumenCajaPDF';
 
 // ===========================
 //  CONFIGURACIÓN
@@ -75,28 +69,12 @@ const ResumenCaja = () => {
   const [cajaChica, setCajaChica] = useState(0);
   const [observaciones, setObservaciones] = useState('');
 
-  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
-
   // ===========================
   //  FORMATEADORES
   // ===========================
   const formatMonto = (m) => Number(m || 0).toFixed(2);
 
-  const formatFecha = (f) => {
-    try {
-      return new Date(f).toLocaleString('es-BO', {
-        timeZone: 'America/La_Paz',
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-      });
-    } catch {
-      return 'Fecha inválida';
-    }
-  };
+  const formatFecha = formatearFechaHora;
 
   // ===========================
   //  FETCH PRINCIPAL
@@ -106,15 +84,12 @@ const ResumenCaja = () => {
     setError(null);
 
     try {
-      const data = await obtenerResumenDeCaja();
+      const [data, ultimo] = await Promise.all([
+        obtenerResumenDeCaja(),
+        obtenerUltimoArqueo().catch(() => null)
+      ]);
       setResumen(data);
-
-      // Cargar caja chica del arqueo previo
-      try {
-        const ultimo = await obtenerUltimoArqueo();
-        if (ultimo?.caja_chica != null) setCajaChica(Number(ultimo.caja_chica));
-      } catch {}
-
+      if (ultimo?.caja_chica != null) setCajaChica(Number(ultimo.caja_chica));
     } catch (err) {
       setError('Error al cargar datos de caja.');
     } finally {
@@ -238,12 +213,6 @@ const ResumenCaja = () => {
         </Box>
 
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Tooltip title="Ver PDF">
-            <IconButton onClick={() => setPdfPreviewOpen(true)}>
-              <PictureAsPdfIcon />
-            </IconButton>
-          </Tooltip>
-
           <Tooltip title="Actualizar">
             <IconButton onClick={fetchData}>
               <RefreshIcon />
@@ -412,19 +381,6 @@ const ResumenCaja = () => {
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       />
 
-      {/* PDF */}
-      <Dialog open={pdfPreviewOpen} onClose={() => setPdfPreviewOpen(false)} maxWidth="lg" fullWidth>
-        <DialogContent sx={{ height: '90vh' }}>
-          <PDFViewer width="100%" height="100%" style={{ border: 'none' }}>
-            <ResumenCajaPDF
-              resumen={resumen}
-              conteo={conteo}
-              cajaChica={cajaChica}
-              diferencia={diferencia}
-            />
-          </PDFViewer>
-        </DialogContent>
-      </Dialog>
     </Paper>
   );
 };

@@ -27,6 +27,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import SearchIcon from '@mui/icons-material/Search';
 import { useAuth } from '../../context/AuthContext';
 import logsApi from '../../API/logsApi';
+import { formatearFechaHora } from '../../utils/fecha';
 
 const UserLogs = () => {
   const { user } = useAuth();
@@ -68,8 +69,6 @@ const UserLogs = () => {
         detalles: `${log.email} - ${log.user_agent} - ${log.ip_address}`
       })).filter(log => log.fecha); // Filtrar logs sin fecha
 
-      console.log('Logs formateados:', logsFormateados);
-      
       setLogs(logsFormateados);
       
       // Extraer usuarios únicos para el filtro (solo para admin)
@@ -166,22 +165,7 @@ const UserLogs = () => {
     setPage(0);
   };
 
-  const formatearFecha = (fecha) => {
-    try {
-      return new Date(fecha).toLocaleString('es-BO', {
-        timeZone: 'America/La_Paz',
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      });
-    } catch (error) {
-      console.error('Error formateando fecha:', error);
-      return 'Fecha inválida';
-    }
-  };
+  const formatearFecha = formatearFechaHora;
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={es}>

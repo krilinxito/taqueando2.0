@@ -14,6 +14,8 @@ const Layout = () => {
           flexGrow: 1,
           p: 3,
           width: 'calc(100% - 240px)',
+          bgcolor: 'background.default',
+          minHeight: 'calc(100vh - 64px)',
         }}
       >
         <Outlet /> {/* Aquí se renderizan las rutas hijas */}

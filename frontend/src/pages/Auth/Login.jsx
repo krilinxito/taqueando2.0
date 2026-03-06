@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { TextField, Button, Typography, Container, Box, CircularProgress } from '@mui/material';
+import { useNavigate, Link } from 'react-router-dom';
+import { TextField, Button, Typography, Box, CircularProgress, Paper } from '@mui/material';
 import { useAuth } from '../../context/AuthContext';
 
 const Login = () => {
@@ -10,45 +10,52 @@ const Login = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setIsSubmitting(true);
-  setError('');
 
-  try {
-    const usuario = await login(email, password);
-    
-    // Añadir verificación de respuesta
-    if (!usuario) {
-      throw new Error('No se recibieron datos de usuario');
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError('');
+
+    try {
+      const usuario = await login(email, password);
+
+      if (!usuario) {
+        throw new Error('No se recibieron datos de usuario');
+      }
+
+      const targetPath = usuario.rol === 'admin'
+        ? '/menu'
+        : usuario.rol === 'empleado'
+          ? '/usuario/pedidos-activos'
+          : '/';
+
+      navigate(targetPath);
+    } catch (err) {
+      setError(err.message || 'Error en el inicio de sesión');
+    } finally {
+      setIsSubmitting(false);
     }
-
-    // Debug: Verificar estructura completa
-    console.log('Datos de usuario recibidos:', usuario);
-
-    // Redirección condicional mejorada
-    const targetPath = usuario.rol === 'admin' 
-      ? '/menu' 
-      : usuario.rol === 'empleado'
-        ? '/usuario/pedidos-activos'
-        : '/';
-
-    navigate(targetPath);
-
-  } catch (err) {
-    setError(err.message || 'Error en el inicio de sesión');
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+  };
 
   return (
-    <Container maxWidth="xs">
-      <Box sx={{ mt: 8, textAlign: 'center' }}>
-        <Typography variant="h4" gutterBottom>
-          Inicio de Sesión
+    <Box
+      sx={{
+        minHeight: '100vh',
+        bgcolor: 'background.default',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        p: 2,
+      }}
+    >
+      <Paper sx={{ maxWidth: 400, width: '100%', p: 4, textAlign: 'center' }}>
+        <Typography variant="h4" color="primary.main" gutterBottom>
+          Taqueando
         </Typography>
-        
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          Inicia sesión para continuar
+        </Typography>
+
         <form onSubmit={handleSubmit}>
           <TextField
             fullWidth
@@ -59,7 +66,7 @@ const handleSubmit = async (e) => {
             onChange={(e) => setEmail(e.target.value)}
             required
           />
-          
+
           <TextField
             fullWidth
             label="Contraseña"
@@ -69,7 +76,7 @@ const handleSubmit = async (e) => {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
-          
+
           {error && (
             <Typography color="error" sx={{ mb: 2 }}>
               {error}
@@ -80,13 +87,22 @@ const handleSubmit = async (e) => {
             type="submit"
             fullWidth
             variant="contained"
+            color="secondary"
             disabled={isSubmitting}
+            sx={{ mt: 1, mb: 2 }}
           >
             {isSubmitting ? <CircularProgress size={24} /> : 'Ingresar'}
           </Button>
         </form>
-      </Box>
-    </Container>
+
+        <Typography variant="body2" color="text.secondary">
+          ¿No tienes cuenta?{' '}
+          <Button component={Link} to="/registro" size="small">
+            Regístrate
+          </Button>
+        </Typography>
+      </Paper>
+    </Box>
   );
 };
 

@@ -7,6 +7,7 @@ const {
   validatePassword
 } = require('../models/user.model');
 const UserLog = require('../models/userLog.model');
+const { invalidarTokensDeUsuario } = require('../middlewares/auth.middleware');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '12h';
@@ -139,6 +140,7 @@ async function updatePassword(req, res) {
     }
 
     await updateUserPassword(userId, newPassword);
+    invalidarTokensDeUsuario();
 
     res.json({ message: 'Contraseña actualizada correctamente' });
   } catch (error) {

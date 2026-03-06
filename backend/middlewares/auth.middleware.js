@@ -63,7 +63,12 @@ setInterval(() => {
   tokenCache.clear();
 }, 3600000); // 1 hora
 
+function invalidarTokensDeUsuario() {
+  tokenCache.clear();
+}
+
 module.exports = {
   verificarToken,
   soloAdmin,
+  invalidarTokensDeUsuario,
 };

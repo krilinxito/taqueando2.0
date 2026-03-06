@@ -2,9 +2,16 @@ const arqueoModel = require('../models/arqueo.model');
 
 const crearArqueoController = async (req, res) => {
   try {
+    const { conteo, totalContado, cajaChica, totalSistema, diferencia, estado, observaciones } = req.body;
     const arqueoData = {
-      ...req.body,
-      idUsuario: req.user.id // Asumiendo que tienes el usuario en el request
+      conteo,
+      totalContado,
+      cajaChica,
+      totalSistema,
+      diferencia,
+      estado,
+      observaciones,
+      idUsuario: req.user.id
     };
 
     // Validar que los datos necesarios estén presentes

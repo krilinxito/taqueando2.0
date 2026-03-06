@@ -33,20 +33,16 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
-import ReceiptIcon from '@mui/icons-material/Receipt';
-import PaymentIcon from '@mui/icons-material/Payment';
-import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
-import { PDFViewer } from '@react-pdf/renderer';
 import { useAuth } from '../context/AuthContext';
 
 // Importaciones corregidas
 import { pagoApi } from '../API/pagoApi';
 import contieneApi from '../API/contieneApi';
-import { crearPedido, obtenerPedidosDelDia, editarPedido } from '../API/pedidosApi';
+import { crearPedido, editarPedido, obtenerPedidosDiaConDetalles } from '../API/pedidosApi';
 import { obtenerProductos } from '../API/productosApi';
 import ProductosModal from './ProductosModal';
 import PagosModal from './PagosModal';
-import PedidoTicketPDF from '../components/pdf/PedidoTicketPDF';
+import { formatearFechaHora } from '../utils/fecha';
 
 const PedidosDashboard = () => {
   const { user } = useAuth();
@@ -63,13 +59,9 @@ const PedidosDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
-  const [confirmDialog, setConfirmDialog] = useState({ open: false, action: null, title: '', message: '' });
   const [productosModalOpen, setProductosModalOpen] = useState(false);
   const [pagosModalOpen, setPagosModalOpen] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
-  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
-  const [selectedPedidoPDF, setSelectedPedidoPDF] = useState(null);
-
   const safeNumber = (value) => {
     if (value === null || value === undefined) return 0;
     const num = Number(value);
@@ -88,83 +80,30 @@ const PedidosDashboard = () => {
 
   const fetchData = useCallback(async () => {
     if (loading) return;
-    
+
     setLoading(true);
     try {
-      // Obtener productos
-      const productsData = await obtenerProductos();
-      
+      const [productsData, response] = await Promise.all([
+        obtenerProductos(),
+        obtenerPedidosDiaConDetalles()
+      ]);
+
       if (!Array.isArray(productsData)) {
         throw new Error('Formato de datos de productos inválido');
       }
       setProducts(productsData);
 
-      // Obtener pedidos del día
-      const response = await obtenerPedidosDelDia();
-
       if (!response.data || !Array.isArray(response.data.data)) {
         throw new Error('Formato de datos de pedidos inválido');
       }
 
-      // Extraer el array de pedidos de la estructura anidada
-      const pedidosArray = response.data.data;
+      const pedidosConDetalles = response.data.data.map((pedido) => {
+        const totalPedido = calculateTotal(pedido.productos);
+        const totalPagado = calculatePaid(pedido.pagos);
+        const pendiente = Math.max(0, totalPedido - totalPagado);
+        return { ...pedido, total: totalPedido, pagado: totalPagado, pendiente };
+      });
 
-      // Filtrar solo los pedidos pendientes
-      const pedidosPendientes = pedidosArray.filter(p => p.estado === 'pendiente');
-
-      // Obtener detalles para cada pedido
-      const pedidosConDetalles = await Promise.all(
-        pedidosPendientes.map(async (pedido) => {
-          try {
-            // Obtener productos del pedido
-            const productosRes = await contieneApi.obtenerProductosDePedido(pedido.id);
-            
-            let productos = [];
-            let totalPedido = 0;
-            
-            if (productosRes?.data?.productos) {
-              productos = productosRes.data.productos;
-              // Calcular el total solo con productos no anulados
-              totalPedido = productos.reduce((sum, p) => {
-                if (p.anulado) return sum;
-                return sum + (safeNumber(p.precio) * safeNumber(p.cantidad));
-              }, 0);
-            }
-
-            // Obtener pagos del pedido
-            const pagosRes = await pagoApi.obtenerPagosDePedido(pedido.id);
-            let pagos = [];
-            if (pagosRes?.data) {
-              pagos = Array.isArray(pagosRes.data) ? pagosRes.data : 
-                     (pagosRes.data.pagos || []);
-            }
-
-            const totalPagado = pagos.reduce((sum, p) => sum + safeNumber(p.monto), 0);
-            const pendiente = Math.max(0, totalPedido - totalPagado);
-
-            return {
-              ...pedido,
-              productos,
-              pagos,
-              total: totalPedido,
-              pagado: totalPagado,
-              pendiente
-            };
-          } catch (error) {
-            console.error(`Error obteniendo detalles del pedido ${pedido.id}:`, error);
-            return {
-              ...pedido,
-              productos: [],
-              pagos: [],
-              total: 0,
-              pagado: 0,
-              pendiente: 0
-            };
-          }
-        })
-      );
-
-      // Establecer los pedidos en el estado
       setOrders(pedidosConDetalles);
       setError(null);
     } catch (error) {
@@ -205,8 +144,6 @@ const PedidosDashboard = () => {
         id_usuario: user.id
       });
 
-      console.log('Respuesta de crear pedido:', response);
-      
       // Cerrar el diálogo y limpiar el formulario
       setIsDialogOpen(false);
       setNewOrderName('');
@@ -256,12 +193,6 @@ const PedidosDashboard = () => {
 
       const cantidadNum = safeNumber(cantidad);
       
-      console.log('Agregando producto:', {
-        id_pedido: orderId,
-        id_producto: selectedProduct.id,
-        cantidad: cantidadNum
-      });
-
       // Agregar el producto al pedido
       const response = await contieneApi.agregarProductoAPedido({
         id_pedido: orderId,
@@ -269,8 +200,6 @@ const PedidosDashboard = () => {
         cantidad: cantidadNum
       });
 
-      console.log('Respuesta de agregar producto:', response);
-      
       if (!response?.data) {
         throw new Error('Error al agregar el producto: respuesta inválida');
       }
@@ -294,7 +223,6 @@ const PedidosDashboard = () => {
 
   const handleCancelProduct = async (productId) => {
     try {
-      console.log('Anulando producto:', productId);
       await contieneApi.anularProductoDePedido(productId);
       showSuccess('Producto anulado exitosamente');
       await fetchData(); // Recargar los datos después de anular
@@ -350,11 +278,6 @@ const PedidosDashboard = () => {
       const monto = safeNumber(p.monto);
       return sum + monto;
     }, 0);
-  };
-
-  const handleViewPDF = (pedido) => {
-    setSelectedPedidoPDF(pedido);
-    setPdfPreviewOpen(true);
   };
 
   const agruparProductos = (productos) => {
@@ -452,7 +375,6 @@ const PedidosDashboard = () => {
                 <TableCell align="right">Total</TableCell>
                 <TableCell align="right">Pagado</TableCell>
                 <TableCell align="right">Pendiente</TableCell>
-                <TableCell align="center">Acciones</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -504,7 +426,7 @@ const PedidosDashboard = () => {
                           Por: {order.nombre_usuario}
                         </Typography>
                         <Typography variant="caption" color="textSecondary">
-                          {new Date(order.fecha).toLocaleString()}
+                          {formatearFechaHora(order.fecha)}
                         </Typography>
                       </Box>
                     </TableCell>
@@ -563,40 +485,6 @@ const PedidosDashboard = () => {
                       ${Math.max(0, Number(order.pendiente || 0)).toFixed(2)}
                       </Typography>
                     </TableCell>
-                  <TableCell align="center">
-                    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
-                      <Tooltip title="Ver Productos">
-                        <IconButton 
-                          onClick={() => {
-                            setSelectedOrderId(order.id);
-                            setProductosModalOpen(true);
-                          }} 
-                          size="small"
-                        >
-                          <ReceiptIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Ver Pagos">
-                        <IconButton 
-                          onClick={() => {
-                            setSelectedOrderId(order.id);
-                            setPagosModalOpen(true);
-                          }} 
-                          size="small"
-                        >
-                          <PaymentIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Ver Ticket">
-                        <IconButton 
-                          onClick={() => handleViewPDF(order)} 
-                          size="small"
-                        >
-                          <PictureAsPdfIcon />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  </TableCell>
                   </TableRow>
               ))}
             </TableBody>
@@ -758,30 +646,6 @@ const PedidosDashboard = () => {
           totalPagado={orders.find(o => o.id === selectedOrderId)?.pagado || 0}
         />
       )}
-
-      <Dialog
-        open={pdfPreviewOpen}
-        onClose={() => {
-          setPdfPreviewOpen(false);
-          setSelectedPedidoPDF(null);
-        }}
-        maxWidth="sm"
-        fullWidth
-        PaperProps={{
-          sx: {
-            height: '90vh',
-            maxWidth: '300px !important'
-          }
-        }}
-      >
-        <DialogContent sx={{ p: 1 }}>
-          {selectedPedidoPDF && (
-            <PDFViewer width="100%" height="100%" style={{ border: 'none' }}>
-              <PedidoTicketPDF pedido={selectedPedidoPDF} />
-            </PDFViewer>
-          )}
-        </DialogContent>
-      </Dialog>
 
       <Snackbar 
         open={!!error} 

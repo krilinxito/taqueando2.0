@@ -4,7 +4,8 @@ const instance = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
   headers: {
     'Content-Type': 'application/json'
-  }
+  },
+  timeout: 15000
 });
 
 instance.interceptors.request.use(

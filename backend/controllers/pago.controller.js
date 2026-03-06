@@ -31,8 +31,12 @@ const agregarPagoController = async (req, res) => {
     }
 
     const pago = await agregarPago(id_pedido, montoNum, metodoNormalizado);
-    const totalPagado = safeNumber(await calcularTotalPagado(id_pedido));
-    const totalPedido = safeNumber(await calcularTotalPedido(id_pedido));
+    const [totalPagadoRaw, totalPedidoRaw] = await Promise.all([
+      calcularTotalPagado(id_pedido),
+      calcularTotalPedido(id_pedido)
+    ]);
+    const totalPagado = safeNumber(totalPagadoRaw);
+    const totalPedido = safeNumber(totalPedidoRaw);
     const restante = Math.max(0, totalPedido - totalPagado);
 
     res.status(201).json({
@@ -52,9 +56,13 @@ const obtenerPagosDePedidoController = async (req, res) => {
   try {
     const { id_pedido } = req.params;
 
-    const pagos = await obtenerPagosDePedido(id_pedido);
-    const totalPagado = safeNumber(await calcularTotalPagado(id_pedido));
-    const totalPedido = safeNumber(await calcularTotalPedido(id_pedido));
+    const [pagos, totalPagadoRaw, totalPedidoRaw] = await Promise.all([
+      obtenerPagosDePedido(id_pedido),
+      calcularTotalPagado(id_pedido),
+      calcularTotalPedido(id_pedido)
+    ]);
+    const totalPagado = safeNumber(totalPagadoRaw);
+    const totalPedido = safeNumber(totalPedidoRaw);
     const restante = Math.max(0, totalPedido - totalPagado);
 
     res.status(200).json({

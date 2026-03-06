@@ -15,12 +15,8 @@ export default {
     axios.post('/auth/verify-token'),
 
   
-  getAdminData: () => 
-    axios.get('/auth/admin', {
-      headers: { 
-        Authorization: `Bearer ${localStorage.getItem('token')}` 
-      }
-    }),
+  getAdminData: () =>
+    axios.get('/auth/admin'),
 
   actualizarPassword: async (currentPassword, newPassword) => {
     try {

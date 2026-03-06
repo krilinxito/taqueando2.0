@@ -4,7 +4,8 @@ const {
   obtenerPedidoPorId,
   actualizarPedido,
   eliminarPedido,
-  obtenerLosPedidosPorDia
+  obtenerLosPedidosPorDia,
+  obtenerPedidosDiaConDetalles
 } = require('../models/pedido.model.js');
 
 
@@ -17,7 +18,6 @@ const crearPedidoController = async (req, res) => {
 
   try {
     const pedido = await crearPedido(nombre, id_usuario);
-    console.log('Pedido creado:', pedido);
     res.status(201).json({ data: pedido });
   } catch (error) {
     console.error('Error al crear el pedido:', error);
@@ -54,10 +54,8 @@ const obtenerTodosLosPedidosController = async (req, res) => {
 const obtenerLosPedidosPorDiaController = async (req, res) => {
   try {
     const pedidosBase = await obtenerLosPedidosPorDia();
-    console.log('Pedidos del día obtenidos:', pedidosBase);
-    
+
     if (!pedidosBase || pedidosBase.length === 0) {
-      console.log('No hay pedidos para el día actual');
       return res.json({ data: pedidosBase });
     }
 
@@ -78,7 +76,7 @@ const obtenerPedidoPorIdController = async (req, res) => {
     }
     res.json(pedido);
   } catch (error) {
-    console.error(error);
+    console.error('Error al obtener el pedido:', error.message);
     res.status(500).json({ error: 'Error al obtener el pedido' });
   }
 };
@@ -100,7 +98,7 @@ const actualizarPedidoController = async (req, res) => {
     const pedidoActualizado = await actualizarPedido(id, nombre);
     res.json({ message: 'Pedido actualizado', pedido: pedidoActualizado });
   } catch (error) {
-    console.error(error);
+    console.error('Error al actualizar el pedido:', error.message);
     res.status(500).json({ error: 'Error al actualizar el pedido' });
   }
 };
@@ -117,8 +115,19 @@ const eliminarPedidoController = async (req, res) => {
     await eliminarPedido(id);
     res.json({ message: 'Pedido eliminado correctamente' });
   } catch (error) {
-    console.error(error);
+    console.error('Error al eliminar el pedido:', error.message);
     res.status(500).json({ error: 'Error al eliminar el pedido' });
+  }
+};
+
+const obtenerPedidosDiaConDetallesController = async (req, res) => {
+  try {
+    const estado = req.query.estado || 'pendiente';
+    const pedidos = await obtenerPedidosDiaConDetalles(estado);
+    res.json({ data: pedidos });
+  } catch (error) {
+    console.error('Error al obtener pedidos del día con detalles:', error);
+    res.status(500).json({ error: 'Error al obtener los pedidos del día' });
   }
 };
 
@@ -128,5 +137,6 @@ module.exports = {
   obtenerPedidoPorIdController,
   actualizarPedidoController,
   eliminarPedidoController,
-  obtenerLosPedidosPorDiaController
+  obtenerLosPedidosPorDiaController,
+  obtenerPedidosDiaConDetallesController
 };

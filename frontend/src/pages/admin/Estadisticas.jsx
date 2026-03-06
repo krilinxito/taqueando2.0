@@ -1,5 +1,4 @@
-// --- IMPORTS ORIGINALES --- //
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Grid from '@mui/material/Grid';
 import {
   Paper,
@@ -21,7 +20,9 @@ import {
   Modal,
   Button,
   Chip,
-  Divider
+  Divider,
+  TextField,
+  Stack
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
@@ -31,8 +32,6 @@ import TrendingFlatIcon from '@mui/icons-material/TrendingFlat';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 
 import {
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -48,12 +47,22 @@ import {
   Cell
 } from 'recharts';
 import { obtenerTodasLasEstadisticas, obtenerIngresosHistoricos } from '../../API/estadisticaApi';
+import { formatearFecha } from '../../utils/fecha';
 
+const COLORS = {
+  primary: '#6366F1',
+  secondary: '#22C55E',
+  tertiary: '#F97316',
+  info: '#0EA5E9',
+  pink: '#EC4899'
+};
+const metodoPagoColors = [COLORS.primary, COLORS.secondary, COLORS.tertiary, COLORS.info, COLORS.pink];
 
-// COLORES PIE
-const metodoPagoColors = ['#6366F1', '#22C55E', '#F97316', '#0EA5E9', '#EC4899'];
+const dayNameMap = {
+  Sunday: 'Dom', Monday: 'Lun', Tuesday: 'Mar', Wednesday: 'Mié',
+  Thursday: 'Jue', Friday: 'Vie', Saturday: 'Sáb'
+};
 
-// MODAL STYLE
 const modalStyle = {
   position: 'absolute',
   top: '50%',
@@ -64,19 +73,69 @@ const modalStyle = {
   bgcolor: 'background.paper',
   boxShadow: 24,
   p: 2,
+  borderRadius: 2,
   height: '80vh',
   display: 'flex',
   flexDirection: 'column'
 };
 
+const paperSx = { p: 2 };
 
-// =======================================
-//          COMPONENTE PRINCIPAL
-// =======================================
+const getPreset = (key) => {
+  const hoy = new Date();
+  const fmt = (d) => new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/La_Paz', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(d);
+  const hoyStr = fmt(hoy);
+
+  switch (key) {
+    case 'hoy': return { fechaInicio: hoyStr, fechaFin: hoyStr, label: 'de hoy' };
+    case 'semana': {
+      const day = hoy.getDay();
+      const diff = day === 0 ? 6 : day - 1;
+      const lunes = new Date(hoy);
+      lunes.setDate(hoy.getDate() - diff);
+      return { fechaInicio: fmt(lunes), fechaFin: hoyStr, label: 'semanales' };
+    }
+    case 'mes': {
+      const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+      return { fechaInicio: fmt(inicio), fechaFin: hoyStr, label: 'del mes' };
+    }
+    case '3meses': {
+      const inicio = new Date(hoy);
+      inicio.setDate(inicio.getDate() - 90);
+      return { fechaInicio: fmt(inicio), fechaFin: hoyStr, label: 'de los últimos 3 meses' };
+    }
+    case 'todo': {
+      return { fechaInicio: '2020-01-01', fechaFin: hoyStr, label: 'históricos' };
+    }
+    default: {
+      const day = hoy.getDay();
+      const diff = day === 0 ? 6 : day - 1;
+      const lunes = new Date(hoy);
+      lunes.setDate(hoy.getDate() - diff);
+      return { fechaInicio: fmt(lunes), fechaFin: hoyStr, label: 'semanales' };
+    }
+  }
+};
+
+const CurrencyTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <Paper sx={{ p: 1.5, borderRadius: 1 }} elevation={3}>
+      <Typography variant="caption" color="text.secondary">{label}</Typography>
+      {payload.map((entry) => (
+        <Typography key={entry.name} variant="body2" sx={{ color: entry.color }}>
+          {entry.name}: {entry.name.includes('$') || entry.name.includes('Ingreso') || entry.name.includes('Venta')
+            ? `$${Number(entry.value).toFixed(2)}`
+            : entry.value}
+        </Typography>
+      ))}
+    </Paper>
+  );
+};
 
 const Estadisticas = () => {
-
-  // ---- ESTADOS ---- //
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [stats, setStats] = useState(null);
@@ -87,47 +146,63 @@ const Estadisticas = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedChart, setSelectedChart] = useState(null);
 
-  // ---- EXTRACCIÓN DE DATOS ---- //
+  const [fechaInicio, setFechaInicio] = useState(() => getPreset('semana').fechaInicio);
+  const [fechaFin, setFechaFin] = useState(() => getPreset('semana').fechaFin);
+  const [periodoLabel, setPeriodoLabel] = useState('semanales');
+  const [presetActivo, setPresetActivo] = useState('semana');
+
   const resumen = stats?.resumen || {};
-  const ingresosData = stats?.ingresos || [];
   const tendenciaData = stats?.tendencia || [];
   const ventasPorHoraData = stats?.ventasPorHora || [];
   const metodosPagoData = stats?.metodosPago || [];
   const productosMasVendidos = stats?.productosMasVendidos || [];
-  const comparativaSemanal = stats?.comparativaSemanal || [];
-
-  const horaPico = resumen?.horaPico;
-  const mejorDia = resumen?.mejorDia;
+  const ventasPorDiaSemana = stats?.ventasPorDiaSemana || [];
+  const gananciasPorSemana = stats?.gananciasPorSemana || [];
   const tiempoPromedioCierre = stats?.tiempoPromedioCierre || 0;
 
-  // ---- MODAL ---- //
   const handleOpenModal = (chartType, title) => {
     setSelectedChart({ type: chartType, title });
     setModalOpen(true);
   };
   const handleCloseModal = () => setModalOpen(false);
 
-  // ---- FETCH ---- //
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const [statsData, historicosData] = await Promise.all([
-        obtenerTodasLasEstadisticas(),
+        obtenerTodasLasEstadisticas(fechaInicio || undefined, fechaFin || undefined),
         obtenerIngresosHistoricos(page + 1, rowsPerPage)
       ]);
       setStats(statsData);
       setIngresosHistoricos(historicosData.ingresos);
       setTotalIngresos(historicosData.total);
-    } catch (error) {
-      setError(error.response?.data?.message || 'Error al cargar estadísticas');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Error al cargar estadísticas');
     } finally {
       setLoading(false);
     }
+  }, [fechaInicio, fechaFin, page, rowsPerPage]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handlePreset = (key) => {
+    const { fechaInicio: fi, fechaFin: ff, label } = getPreset(key);
+    setFechaInicio(fi);
+    setFechaFin(ff);
+    setPeriodoLabel(label);
+    setPresetActivo(key);
   };
 
-  useEffect(() => { fetchData(); }, [page, rowsPerPage]);
+  const handleCustomDate = (field, value) => {
+    setPresetActivo('custom');
+    if (field === 'inicio') {
+      setFechaInicio(value);
+    } else {
+      setFechaFin(value);
+    }
+    setPeriodoLabel('del periodo');
+  };
 
-  // ---- FORMATOS ---- //
   const formatMonto = (m) => Number(m || 0).toFixed(2);
   const formatCurrency = (v) => `$${formatMonto(v)}`;
   const formatPercentage = (v) => `${v > 0 ? '+' : ''}${Number(v || 0).toFixed(1)}%`;
@@ -138,22 +213,33 @@ const Estadisticas = () => {
     return { Icon: TrendingFlatIcon, color: 'text.secondary' };
   };
 
-  // ---- CARDS RESUMEN ---- //
+  const ventasPorHoraFormatted = ventasPorHoraData.map(v => ({
+    ...v,
+    horaLabel: `${v.hora}hs`
+  }));
+
+  const ventasPorDiaSemanaFormatted = ventasPorDiaSemana.map(d => ({
+    ...d,
+    diaLabel: dayNameMap[d.nombre_dia] || d.nombre_dia
+  }));
+
+  const productosTop10 = productosMasVendidos.slice(0, 10);
+
   const resumenCards = [
     {
       key: 'ingresos',
-      title: 'Ingresos semanales',
+      title: `Ingresos ${periodoLabel}`,
       value: resumen.ingresosSemana,
       formatter: formatCurrency,
-      helper: 'vs semana anterior',
+      helper: 'vs periodo anterior',
       trend: resumen.variacionIngresos
     },
     {
       key: 'pedidos',
-      title: 'Pedidos semanales',
+      title: `Pedidos ${periodoLabel}`,
       value: resumen.pedidosSemana,
       formatter: (v) => v || 0,
-      helper: 'vs semana anterior',
+      helper: 'vs periodo anterior',
       trend: resumen.variacionPedidos
     },
     {
@@ -161,25 +247,35 @@ const Estadisticas = () => {
       title: 'Ticket promedio',
       value: resumen.ticketPromedio,
       formatter: formatCurrency,
-      helper: `Promedio diario: ${formatCurrency(resumen.promedioDiario || 0)}`,
-      trend: null
+      helper: 'vs periodo anterior',
+      trend: resumen.variacionTicket
+    },
+    {
+      key: 'tiempo',
+      title: 'Tiempo promedio cierre',
+      value: tiempoPromedioCierre,
+      formatter: (v) => `${Math.round(v || 0)} min`,
+      helper: 'desde pedido hasta pago',
+      trend: null,
+      icon: ScheduleIcon
     }
   ];
 
-  // ---- UI ---- //
+  const presets = [
+    { key: 'hoy', label: 'Hoy' },
+    { key: 'semana', label: 'Esta semana' },
+    { key: 'mes', label: 'Este mes' },
+    { key: '3meses', label: 'Últimos 3 meses' },
+    { key: 'todo', label: 'Todo el historial' },
+  ];
 
-  if (loading)
+  if (loading && !stats)
     return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}><CircularProgress /></Box>;
 
   if (error)
     return <Alert severity="error" sx={{ m: 3 }}>{error}</Alert>;
 
   if (!stats) return null;
-
-
-  // =======================================
-  //               RENDER
-  // =======================================
 
   return (
     <Box sx={{ p: 2 }}>
@@ -188,29 +284,65 @@ const Estadisticas = () => {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4">Dashboard de Estadísticas</Typography>
         <Tooltip title="Actualizar">
-          <IconButton onClick={fetchData}><RefreshIcon /></IconButton>
+          <IconButton onClick={fetchData} disabled={loading}><RefreshIcon /></IconButton>
         </Tooltip>
       </Box>
 
+      {/* FILTRO DE FECHAS */}
+      <Paper sx={{ ...paperSx, mb: 2 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center" flexWrap="wrap">
+          <Stack direction="row" spacing={1} flexWrap="wrap">
+            {presets.map((p) => (
+              <Chip
+                key={p.key}
+                label={p.label}
+                variant={presetActivo === p.key ? 'filled' : 'outlined'}
+                color={presetActivo === p.key ? 'primary' : 'default'}
+                onClick={() => handlePreset(p.key)}
+                size="small"
+              />
+            ))}
+          </Stack>
+          <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', sm: 'block' } }} />
+          <Stack direction="row" spacing={1} alignItems="center">
+            <TextField
+              type="date"
+              label="Desde"
+              size="small"
+              value={fechaInicio}
+              onChange={(e) => handleCustomDate('inicio', e.target.value)}
+              slotProps={{ inputLabel: { shrink: true } }}
+              sx={{ width: 160 }}
+            />
+            <TextField
+              type="date"
+              label="Hasta"
+              size="small"
+              value={fechaFin}
+              onChange={(e) => handleCustomDate('fin', e.target.value)}
+              slotProps={{ inputLabel: { shrink: true } }}
+              sx={{ width: 160 }}
+            />
+          </Stack>
+          {loading && <CircularProgress size={20} />}
+        </Stack>
+      </Paper>
+
       <Grid container spacing={2}>
 
-        {/* -------------------- CARDS RESUMEN -------------------- */}
+        {/* ---- ROW 1: 4 KPI CARDS ---- */}
         {resumenCards.map((card) => {
-          const trend = card.trend !== null ? getTrendIndicator(card.trend) : null;
+          const trend = card.trend !== null && card.trend !== undefined ? getTrendIndicator(card.trend) : null;
+          const CardIcon = card.icon;
 
           return (
-            <Grid item xs={12} sm={6} md={3} key={card.key}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }} key={card.key}>
               <Card sx={{ p: 1 }}>
                 <CardContent sx={{ p: 1 }}>
-                  <Typography variant="subtitle2">{card.title}</Typography>
+                  <Typography variant="subtitle2" color="text.secondary">{card.title}</Typography>
 
-                  <Box sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    mt: 1
-                  }}>
-                    <Typography variant="h5">
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
+                    <Typography variant="h5" sx={{ fontWeight: 600 }}>
                       {card.formatter(card.value)}
                     </Typography>
 
@@ -221,6 +353,10 @@ const Estadisticas = () => {
                           {formatPercentage(card.trend)}
                         </Typography>
                       </Box>
+                    )}
+
+                    {CardIcon && (
+                      <CardIcon sx={{ color: COLORS.primary, fontSize: 28 }} />
                     )}
                   </Box>
 
@@ -233,44 +369,94 @@ const Estadisticas = () => {
           );
         })}
 
-        {/* -------------------- TENDENCIA 30 DÍAS -------------------- */}
-        <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 2, height: 340 }}>
-            <Typography variant="h6" sx={{ mb: 1 }}>Tendencia últimos 30 días</Typography>
+        {/* ---- ROW 2: TENDENCIA UNIFICADA ---- */}
+        <Grid size={12}>
+          <Paper sx={{ ...paperSx, height: 420 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+              <Typography variant="h6">
+                Tendencia {periodoLabel}
+              </Typography>
+              <IconButton size="small" onClick={() => handleOpenModal('tendencia', `Tendencia ${periodoLabel}`)}>
+                <FullscreenIcon />
+              </IconButton>
+            </Box>
 
-            <ResponsiveContainer width="100%" height="85%">
+            <ResponsiveContainer width="100%" height="88%">
               <AreaChart data={tendenciaData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="fecha" />
-                <YAxis yAxisId="left" />
-                <YAxis yAxisId="right" orientation="right" />
-                <RechartsTooltip />
+                <XAxis dataKey="fecha" tick={{ fontSize: 12 }} />
+                <YAxis yAxisId="left" tick={{ fontSize: 12 }} />
+                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} />
+                <RechartsTooltip content={<CurrencyTooltip />} />
                 <Legend />
-                <Area dataKey="total" stroke="#6366F1" fill="#6366F1" fillOpacity={0.25} name="Ingresos ($)" yAxisId="left" />
-                <Area dataKey="total_pedidos" stroke="#22C55E" fill="#22C55E" fillOpacity={0.15} name="Pedidos" yAxisId="right" />
+                <Area dataKey="total" stroke={COLORS.primary} fill={COLORS.primary} fillOpacity={0.2} name="Ingresos ($)" yAxisId="left" />
+                <Area dataKey="total_pedidos" stroke={COLORS.secondary} fill={COLORS.secondary} fillOpacity={0.1} name="Pedidos" yAxisId="right" />
               </AreaChart>
             </ResponsiveContainer>
-
           </Paper>
         </Grid>
 
-        {/* -------------------- MÉTODOS DE PAGO -------------------- */}
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2, height: 340 }}>
-            <Typography variant="h6" sx={{ mb: 1 }}>Métodos de pago</Typography>
+        {/* ---- ROW 3: TRES PANELES SECUNDARIOS ---- */}
 
-            <ResponsiveContainer width="100%" height={160}>
+        {/* Ventas por Hora */}
+        <Grid size={{ xs: 12, md: 5 }}>
+          <Paper sx={{ ...paperSx, height: 380 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+              <Typography variant="h6">Ventas por Hora</Typography>
+              <IconButton size="small" onClick={() => handleOpenModal('ventasHora', 'Ventas por Hora')}>
+                <FullscreenIcon />
+              </IconButton>
+            </Box>
+
+            <ResponsiveContainer width="100%" height="88%">
+              <BarChart data={ventasPorHoraFormatted}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="horaLabel" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <RechartsTooltip content={<CurrencyTooltip />} />
+                <Legend />
+                <Bar dataKey="total_ventas" fill={COLORS.primary} name="Ventas ($)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="total_pedidos" fill={COLORS.secondary} name="Pedidos" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </Paper>
+        </Grid>
+
+        {/* Ventas por Día de Semana */}
+        <Grid size={{ xs: 12, md: 4 }}>
+          <Paper sx={{ ...paperSx, height: 380 }}>
+            <Typography variant="h6" sx={{ mb: 1 }}>Ventas por Día</Typography>
+
+            <ResponsiveContainer width="100%" height="88%">
+              <BarChart data={ventasPorDiaSemanaFormatted}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="diaLabel" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <RechartsTooltip content={<CurrencyTooltip />} />
+                <Legend />
+                <Bar dataKey="total_ventas" fill={COLORS.tertiary} name="Ventas ($)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="total_pedidos" fill={COLORS.info} name="Pedidos" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </Paper>
+        </Grid>
+
+        {/* Métodos de Pago */}
+        <Grid size={{ xs: 12, md: 3 }}>
+          <Paper sx={{ ...paperSx, height: 380 }}>
+            <Typography variant="h6" sx={{ mb: 1 }}>Métodos de Pago</Typography>
+
+            <ResponsiveContainer width="100%" height={180}>
               <PieChart>
-                <Pie data={metodosPagoData} dataKey="total" nameKey="metodo" innerRadius={45} outerRadius={70}>
+                <Pie data={metodosPagoData} dataKey="total" nameKey="metodo" innerRadius={50} outerRadius={75}>
                   {metodosPagoData.map((_, i) => (
                     <Cell key={i} fill={metodoPagoColors[i % metodoPagoColors.length]} />
                   ))}
                 </Pie>
-                <RechartsTooltip />
+                <RechartsTooltip formatter={(value) => `$${Number(value).toFixed(2)}`} />
               </PieChart>
             </ResponsiveContainer>
 
-            {/* LEYENDA */}
             <Box sx={{ mt: 1 }}>
               {metodosPagoData.map((m, i) => (
                 <Box key={m.metodo} sx={{ display: 'flex', justifyContent: 'space-between', mb: .5 }}>
@@ -281,122 +467,128 @@ const Estadisticas = () => {
                     }} />
                     <Typography variant="body2">{m.metodo}</Typography>
                   </Box>
-                  <Typography variant="body2">{formatCurrency(m.total)}</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>{formatCurrency(m.total)}</Typography>
                 </Box>
               ))}
             </Box>
           </Paper>
         </Grid>
 
-        {/* -------------------- INGRESOS SEMANALES -------------------- */}
-        <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 2, height: 340 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Typography variant="h6">Ingresos semanales</Typography>
-              <IconButton size="small" onClick={() => handleOpenModal('ingresos', 'Ingresos Semanales')}>
-                <FullscreenIcon />
-              </IconButton>
-            </Box>
+        {/* ---- ROW 4: PRODUCTOS MÁS VENDIDOS ---- */}
+        <Grid size={{ xs: 12, md: 5 }}>
+          <Paper sx={{ ...paperSx, height: 420 }}>
+            <Typography variant="h6" gutterBottom>Top 10 Productos</Typography>
 
-            <ResponsiveContainer width="100%" height="85%">
-              <LineChart data={ingresosData}>
+            <ResponsiveContainer width="100%" height="90%">
+              <BarChart data={productosTop10} layout="vertical" margin={{ left: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="fecha" />
-                <YAxis />
-                <RechartsTooltip />
+                <XAxis type="number" tick={{ fontSize: 11 }} />
+                <YAxis type="category" dataKey="nombre" tick={{ fontSize: 11 }} width={90} />
+                <RechartsTooltip content={<CurrencyTooltip />} />
                 <Legend />
-                <Line dataKey="total" stroke="#6366F1" strokeWidth={2} name="Ingresos ($)" />
-                <Line dataKey="total_pedidos" stroke="#22C55E" strokeWidth={2} name="Pedidos" />
-              </LineChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid>
-
-        {/* -------------------- COMPARATIVA SEMANAL -------------------- */}
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2, height: 340 }}>
-            <Typography variant="h6" gutterBottom>Comparativa Semanal</Typography>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Periodo</TableCell>
-                  <TableCell align="right">Pedidos</TableCell>
-                  <TableCell align="right">Ventas ($)</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {comparativaSemanal.map((row) => (
-                  <TableRow key={row.periodo}>
-                    <TableCell>{row.periodo}</TableCell>
-                    <TableCell align="right">{row.total_pedidos}</TableCell>
-                    <TableCell align="right">${formatMonto(row.total_ventas)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Paper>
-        </Grid>
-
-        {/* -------------------- VENTAS POR HORA -------------------- */}
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2, height: 360 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-              <Typography variant="h6">Ventas por Hora</Typography>
-              <IconButton size="small" onClick={() => handleOpenModal('ventasHora', 'Ventas por Hora')}>
-                <FullscreenIcon />
-              </IconButton>
-            </Box>
-
-            <ResponsiveContainer width="100%" height="85%">
-              <BarChart data={ventasPorHoraData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="hora" />
-                <YAxis />
-                <RechartsTooltip />
-                <Legend />
-                <Bar dataKey="total_ventas" fill="#6366F1" />
-                <Bar dataKey="total_pedidos" fill="#22C55E" />
+                <Bar dataKey="cantidad_total" fill={COLORS.primary} name="Cantidad" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="ingresos_total" fill={COLORS.secondary} name="Ingresos ($)" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </Paper>
         </Grid>
 
-        {/* -------------------- PRODUCTOS MÁS VENDIDOS -------------------- */}
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2, height: 360 }}>
-            <Typography variant="h6" gutterBottom>Productos Más Vendidos</Typography>
+        <Grid size={{ xs: 12, md: 7 }}>
+          <Paper sx={{ ...paperSx, height: 420, display: 'flex', flexDirection: 'column' }}>
+            <Typography variant="h6" gutterBottom>
+              Todos los Productos ({productosMasVendidos.length})
+            </Typography>
 
-            <TableContainer sx={{ maxHeight: 280 }}>
+            <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
               <Table stickyHeader size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Producto</TableCell>
-                    <TableCell align="right">Cantidad</TableCell>
-                    <TableCell align="right">Ingresos ($)</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>#</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Producto</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600 }}>Cantidad vendida</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600 }}>Ingresos generados</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {productosMasVendidos.length > 0 ? (
-                    productosMasVendidos.map((prod) => (
-                      <TableRow key={prod.nombre}>
+                    productosMasVendidos.map((prod, idx) => (
+                      <TableRow key={prod.nombre} hover>
+                        <TableCell>{idx + 1}</TableCell>
                         <TableCell>{prod.nombre}</TableCell>
                         <TableCell align="right">{prod.cantidad_total}</TableCell>
                         <TableCell align="right">${formatMonto(prod.ingresos_total)}</TableCell>
                       </TableRow>
                     ))
                   ) : (
-                    <TableRow><TableCell colSpan={3} align="center">Sin datos</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={4} align="center">Sin datos</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
             </TableContainer>
-
           </Paper>
         </Grid>
 
-        {/* -------------------- HISTORIAL DE INGRESOS -------------------- */}
-        <Grid item xs={12}>
-          <Paper sx={{ p: 2 }}>
+        {/* ---- ROW 5: GANANCIAS POR SEMANA ---- */}
+        {gananciasPorSemana.length > 0 && (
+          <>
+            <Grid size={{ xs: 12, md: 7 }}>
+              <Paper sx={{ ...paperSx, height: 420 }}>
+                <Typography variant="h6" gutterBottom>Ganancias por Semana</Typography>
+
+                <ResponsiveContainer width="100%" height="88%">
+                  <BarChart data={gananciasPorSemana.map(s => ({
+                    ...s,
+                    label: `S${s.semana}`
+                  }))}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <RechartsTooltip content={<CurrencyTooltip />} />
+                    <Legend />
+                    <Bar dataKey="total_ventas" fill={COLORS.primary} name="Ventas ($)" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="total_pedidos" fill={COLORS.secondary} name="Pedidos" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </Paper>
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 5 }}>
+              <Paper sx={{ ...paperSx, height: 420, display: 'flex', flexDirection: 'column' }}>
+                <Typography variant="h6" gutterBottom>Registro Semanal</Typography>
+
+                <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
+                  <Table stickyHeader size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600 }}>Semana</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>Periodo</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 600 }}>Pedidos</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 600 }}>Ganancias</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {gananciasPorSemana.map((s) => {
+                        const mesNombre = new Date(2000, s.mes - 1).toLocaleString('es', { month: 'short' });
+                        return (
+                          <TableRow key={`${s.anio}-${s.semana}`} hover>
+                            <TableCell>S{s.semana} - {mesNombre}</TableCell>
+                            <TableCell>{s.fecha_inicio?.slice(5)} al {s.fecha_fin?.slice(5)}</TableCell>
+                            <TableCell align="right">{s.total_pedidos}</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 500 }}>${formatMonto(s.total_ventas)}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Paper>
+            </Grid>
+          </>
+        )}
+
+        {/* ---- ROW 6: HISTORIAL DE INGRESOS ---- */}
+        <Grid size={12}>
+          <Paper sx={paperSx}>
             <Typography variant="h6" gutterBottom>Historial de Ingresos</Typography>
 
             <TableContainer>
@@ -412,10 +604,10 @@ const Estadisticas = () => {
                 <TableBody>
                   {ingresosHistoricos.map((i) => (
                     <TableRow key={i.fecha}>
-                      <TableCell>{new Date(i.fecha).toLocaleDateString()}</TableCell>
+                      <TableCell>{formatearFecha(i.fecha)}</TableCell>
                       <TableCell align="right">{i.total_pedidos}</TableCell>
                       <TableCell align="right">${formatMonto(i.total)}</TableCell>
-                      <TableCell align="right">${formatMonto(i.total / i.total_pedidos)}</TableCell>
+                      <TableCell align="right">${formatMonto(i.total_pedidos ? i.total / i.total_pedidos : 0)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -432,14 +624,12 @@ const Estadisticas = () => {
               rowsPerPageOptions={[5, 10, 25, 50]}
               labelRowsPerPage="Filas por página"
             />
-
           </Paper>
         </Grid>
 
       </Grid>
 
-
-      {/* -------------------- MODAL FULLSCREEN -------------------- */}
+      {/* ---- MODAL FULLSCREEN ---- */}
       <Modal open={modalOpen} onClose={handleCloseModal}>
         <Box sx={modalStyle}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
@@ -448,31 +638,29 @@ const Estadisticas = () => {
           </Box>
 
           <ResponsiveContainer width="100%" height="100%">
-            {selectedChart?.type === 'ingresos' && (
-              <LineChart data={ingresosData}>
+            {selectedChart?.type === 'tendencia' ? (
+              <AreaChart data={tendenciaData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="fecha" />
-                <YAxis />
-                <RechartsTooltip />
+                <YAxis yAxisId="left" />
+                <YAxis yAxisId="right" orientation="right" />
+                <RechartsTooltip content={<CurrencyTooltip />} />
                 <Legend />
-                <Line dataKey="total" stroke="#6366F1" strokeWidth={2} />
-                <Line dataKey="total_pedidos" stroke="#22C55E" strokeWidth={2} />
-              </LineChart>
-            )}
-
-            {selectedChart?.type === 'ventasHora' && (
-              <BarChart data={ventasPorHoraData}>
+                <Area dataKey="total" stroke={COLORS.primary} fill={COLORS.primary} fillOpacity={0.2} name="Ingresos ($)" yAxisId="left" />
+                <Area dataKey="total_pedidos" stroke={COLORS.secondary} fill={COLORS.secondary} fillOpacity={0.1} name="Pedidos" yAxisId="right" />
+              </AreaChart>
+            ) : (
+              <BarChart data={ventasPorHoraFormatted}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="hora" />
+                <XAxis dataKey="horaLabel" />
                 <YAxis />
-                <RechartsTooltip />
+                <RechartsTooltip content={<CurrencyTooltip />} />
                 <Legend />
-                <Bar dataKey="total_ventas" fill="#6366F1" />
-                <Bar dataKey="total_pedidos" fill="#22C55E" />
+                <Bar dataKey="total_ventas" fill={COLORS.primary} name="Ventas ($)" />
+                <Bar dataKey="total_pedidos" fill={COLORS.secondary} name="Pedidos" />
               </BarChart>
             )}
           </ResponsiveContainer>
-
         </Box>
       </Modal>
 
