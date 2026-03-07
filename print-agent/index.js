@@ -140,7 +140,15 @@ const handler = async (req, res) => {
   if (req.method === 'GET' && req.url === '/ports') {
     try {
       const ports = await SerialPort.list();
-      sendJson(res, 200, { success: true, ports: ports.map(p => p.path) });
+      sendJson(res, 200, {
+        success: true,
+        ports: ports.map(p => ({
+          path: p.path,
+          manufacturer: p.manufacturer || null,
+          friendlyName: p.friendlyName || null,
+          pnpId: p.pnpId || null,
+        })),
+      });
     } catch (err) {
       sendJson(res, 500, { success: false, error: err.message });
     }
