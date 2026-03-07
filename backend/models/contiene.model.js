@@ -9,12 +9,19 @@ const safeNumber = (value) => {
 // Agregar producto a un pedido
 const agregarProductoAPedido = async (id_pedido, id_producto, cantidad = 1) => {
   try {
-    const [result] = await pool.execute(
-      `INSERT INTO contiene (id_pedido, id_producto, cantidad)
-       VALUES (?, ?, ?)`,
-      [id_pedido, id_producto, cantidad]
+    // Obtener precio actual del producto para congelarlo en el pedido
+    const [producto] = await pool.execute(
+      'SELECT precio FROM productos WHERE id = ?',
+      [id_producto]
     );
-    return { id: result.insertId, id_pedido, id_producto, cantidad };
+    const precio = producto[0]?.precio ?? null;
+
+    const [result] = await pool.execute(
+      `INSERT INTO contiene (id_pedido, id_producto, cantidad, precio)
+       VALUES (?, ?, ?, ?)`,
+      [id_pedido, id_producto, cantidad, precio]
+    );
+    return { id: result.insertId, id_pedido, id_producto, cantidad, precio };
   } catch (error) {
     throw error;
   }
@@ -37,14 +44,14 @@ const anularProductoDePedido = async (id_contiene) => {
 const obtenerProductosDePedido = async (id_pedido) => {
   try {
     const [rows] = await pool.execute(
-      `SELECT 
+      `SELECT
         c.id,
         c.id_producto,
         c.cantidad,
         c.anulado,
         p.nombre,
-        p.precio,
-        (p.precio * c.cantidad) as subtotal
+        COALESCE(c.precio, p.precio) as precio,
+        (COALESCE(c.precio, p.precio) * c.cantidad) as subtotal
        FROM contiene c
        JOIN productos p ON c.id_producto = p.id
        WHERE c.id_pedido = ? `,

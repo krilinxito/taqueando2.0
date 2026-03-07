@@ -63,7 +63,7 @@ const calcularTotalPagado = async (id_pedido) => {
 const calcularTotalPedido = async (id_pedido) => {
   try {
     const [rows] = await pool.execute(
-      `SELECT COALESCE(SUM(p.precio * c.cantidad), 0) AS total
+      `SELECT COALESCE(SUM(COALESCE(c.precio, p.precio) * c.cantidad), 0) AS total
        FROM contiene c
        JOIN productos p ON c.id_producto = p.id
        WHERE c.id_pedido = ? AND c.anulado = FALSE`,
@@ -77,10 +77,14 @@ const calcularTotalPedido = async (id_pedido) => {
 
 // Verificar si el pedido ya fue cancelado y actualizar su estado si corresponde
 const verificarYActualizarEstadoPedido = async (id_pedido) => {
-  const total = await calcularTotalPedido(id_pedido);
-  const pagado = await calcularTotalPagado(id_pedido);
-
-  if (pagado >= total && total > 0) {
+  const [rows] = await pool.execute(
+    `SELECT
+       COALESCE((SELECT SUM(COALESCE(c.precio, p.precio) * c.cantidad) FROM contiene c JOIN productos p ON c.id_producto = p.id WHERE c.id_pedido = ? AND c.anulado = FALSE), 0) AS total,
+       COALESCE((SELECT SUM(monto) FROM pagos WHERE id_pedido = ?), 0) AS pagado`,
+    [id_pedido, id_pedido]
+  );
+  const { total, pagado } = rows[0];
+  if (safeNumber(pagado) >= safeNumber(total) && safeNumber(total) > 0) {
     await pool.execute(
       `UPDATE pedidos SET estado = 'cancelado' WHERE id = ?`,
       [id_pedido]

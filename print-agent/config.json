@@ -1,0 +1,6 @@
+{
+  "port": 9876,
+  "printerPort": "COM5",
+  "baudRate": 9600,
+  "paperWidth": 48
+}

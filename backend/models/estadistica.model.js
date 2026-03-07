@@ -51,7 +51,7 @@ const getProductosMasVendidos = async (limite = 50, fechaInicio, fechaFin) => {
       SELECT
         p.nombre,
         SUM(c.cantidad) as cantidad_total,
-        SUM(c.cantidad * p.precio) as ingresos_total
+        SUM(c.cantidad * COALESCE(c.precio, p.precio)) as ingresos_total
       FROM contiene c
       JOIN productos p ON c.id_producto = p.id
       JOIN pedidos pd ON c.id_pedido = pd.id

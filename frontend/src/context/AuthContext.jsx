@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, useRef } from 'react';
-import axios from '../API/axios';
+import axios, { updateCachedToken, clearCachedToken } from '../API/axios';
 import { jwtDecode } from 'jwt-decode';
 
 const AuthContext = createContext(null);
@@ -14,64 +14,54 @@ export const AuthProvider = ({ children }) => {
   // Función para verificar el token
   const verifyToken = useCallback(async (token) => {
     try {
-      // Primero intentamos decodificar el token localmente
       const decodedToken = jwtDecode(token);
-      
-      // Verificar si el token ha expirado
       const currentTime = Date.now() / 1000;
       if (decodedToken.exp < currentTime) {
         return null;
       }
 
-      // Si el token es válido localmente, verificamos con el servidor
-      const response = await axios.post('/auth/verify-token', {}, {
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+      const userData = {
+        id: decodedToken.id,
+        email: decodedToken.email,
+        rol: decodedToken.rol,
+        nombre: decodedToken.nombre || decodedToken.email.split('@')[0]
+      };
+
+      // Solo verificar con servidor si expira en menos de 1 hora
+      if (decodedToken.exp - currentTime < 3600) {
+        try {
+          const response = await axios.post('/auth/verify-token', {}, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          if (response.data?.user) {
+            return response.data.user;
+          }
+        } catch {
+          // usar datos locales si falla la verificacion con servidor
         }
-      });
-      
-      if (response.data?.user) {
-        return response.data.user;
-      } else if (decodedToken) {
-        // Si el servidor no devuelve user pero el token es válido, usamos los datos del token
-        return {
-          id: decodedToken.id,
-          email: decodedToken.email,
-          rol: decodedToken.rol,
-          nombre: decodedToken.nombre || decodedToken.email.split('@')[0]
-        };
       }
-      return null;
+
+      return userData;
     } catch (error) {
-      console.error('Error verificando token:', error.response?.data || error.message);
-      // Si hay un error de red pero el token es válido localmente, usamos los datos del token
-      try {
-        const decodedToken = jwtDecode(token);
-        const currentTime = Date.now() / 1000;
-        if (decodedToken.exp > currentTime) {
-          return {
-            id: decodedToken.id,
-            email: decodedToken.email,
-            rol: decodedToken.rol,
-            nombre: decodedToken.nombre || decodedToken.email.split('@')[0]
-          };
-        }
-      } catch (e) {
-        console.error('Error decodificando token:', e);
-      }
+      console.error('Error verificando token:', error.message);
       return null;
     }
   }, []);
 
-  // Función para actualizar la última actividad
+  // Función para actualizar la última actividad (throttled a 30s)
   const updateActivity = useCallback(() => {
-    lastActivityRef.current = Date.now();
-    localStorage.setItem('lastActivity', Date.now().toString());
+    const now = Date.now();
+    if (now - lastActivityRef.current < 30000) return;
+    lastActivityRef.current = now;
+    localStorage.setItem('lastActivity', now.toString());
   }, []);
 
   // Función de logout
   const logout = useCallback((redirect = true) => {
+    clearCachedToken();
     localStorage.removeItem('token');
     localStorage.removeItem('lastActivity');
     setUser(null);
@@ -120,23 +110,10 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     if (!user) return;
 
-    let mouseMoveTimer = null;
-    const handleMouseMove = () => {
-      if (mouseMoveTimer) return;
-      mouseMoveTimer = setTimeout(() => {
-        updateActivity();
-        mouseMoveTimer = null;
-      }, 5000);
-    };
-
-    const handleActivity = () => {
-      updateActivity();
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('keydown', handleActivity);
-    window.addEventListener('click', handleActivity);
-    window.addEventListener('scroll', handleActivity);
+    window.addEventListener('mousemove', updateActivity);
+    window.addEventListener('keydown', updateActivity);
+    window.addEventListener('click', updateActivity);
+    window.addEventListener('scroll', updateActivity);
 
     const checkActivity = setInterval(() => {
       const timeSinceLastActivity = Date.now() - lastActivityRef.current;
@@ -146,12 +123,11 @@ export const AuthProvider = ({ children }) => {
     }, 60000); // Revisar cada minuto
 
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('keydown', handleActivity);
-      window.removeEventListener('click', handleActivity);
-      window.removeEventListener('scroll', handleActivity);
+      window.removeEventListener('mousemove', updateActivity);
+      window.removeEventListener('keydown', updateActivity);
+      window.removeEventListener('click', updateActivity);
+      window.removeEventListener('scroll', updateActivity);
       clearInterval(checkActivity);
-      if (mouseMoveTimer) clearTimeout(mouseMoveTimer);
     };
   }, [user, updateActivity, logout]);
 
@@ -177,6 +153,7 @@ export const AuthProvider = ({ children }) => {
       };
       
       localStorage.setItem('token', token);
+      updateCachedToken(token);
       updateActivity();
       setUser(userData);
       

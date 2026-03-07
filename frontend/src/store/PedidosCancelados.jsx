@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   Paper,
   Table,
@@ -16,15 +16,19 @@ import {
   Tooltip,
   TextField,
   InputAdornment,
+  Snackbar,
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import SearchIcon from '@mui/icons-material/Search';
+import PrintIcon from '@mui/icons-material/Print';
 import { obtenerPedidosDiaConDetalles } from '../API/pedidosApi';
 import MoneyIcon from '@mui/icons-material/Money';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
 import QrCodeIcon from '@mui/icons-material/QrCode';
 import LanguageIcon from '@mui/icons-material/Language';
 import { formatearFechaHora } from '../utils/fecha';
+import CuentaModal from './CuentaModal';
+import PrinterStatusIndicator from './PrinterStatusIndicator';
 
 const PedidosCancelados = () => {
   const [pedidos, setPedidos] = useState([]);
@@ -32,6 +36,8 @@ const PedidosCancelados = () => {
   const [error, setError] = useState(null);
   const [sortOrder, setSortOrder] = useState('desc');
   const [busqueda, setBusqueda] = useState('');
+  const [selectedPedidoForPrint, setSelectedPedidoForPrint] = useState(null);
+  const [success, setSuccess] = useState(null);
 
   const getPaymentMethodColor = (metodo) => {
     switch (metodo.toLowerCase()) {
@@ -96,25 +102,30 @@ const PedidosCancelados = () => {
     };
   }, [fetchPedidos]);
 
-  const pedidosFiltrados = pedidos.filter((pedido) => {
-    if (!busqueda) return true;
-    const termino = busqueda.toLowerCase();
-    const coincideNombre = pedido.nombre?.toLowerCase().includes(termino);
-    const coincideProducto = pedido.productos?.some(p =>
-      p.nombre?.toLowerCase().includes(termino)
-    );
-    const coincidePago = pedido.pagos?.some(p =>
-      p.metodo?.toLowerCase().includes(termino)
-    );
-    return coincideNombre || coincideProducto || coincidePago;
-  });
+  const pedidosFiltrados = useMemo(() => {
+    return pedidos.filter((pedido) => {
+      if (!busqueda) return true;
+      const termino = busqueda.toLowerCase();
+      const coincideNombre = pedido.nombre?.toLowerCase().includes(termino);
+      const coincideProducto = pedido.productos?.some(p =>
+        p.nombre?.toLowerCase().includes(termino)
+      );
+      const coincidePago = pedido.pagos?.some(p =>
+        p.metodo?.toLowerCase().includes(termino)
+      );
+      return coincideNombre || coincideProducto || coincidePago;
+    });
+  }, [pedidos, busqueda]);
 
   return (
     <Paper sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h4">
-          Pedidos Cancelados del Día
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography variant="h4">
+            Pedidos Cancelados del Día
+          </Typography>
+          <PrinterStatusIndicator />
+        </Box>
         <Tooltip title="Actualizar">
           <span>
             <IconButton onClick={fetchPedidos} disabled={loading}>
@@ -166,6 +177,7 @@ const PedidosCancelados = () => {
                 <TableCell>Productos</TableCell>
                 <TableCell align="right">Total</TableCell>
                 <TableCell>Pagos</TableCell>
+                <TableCell align="center">Acciones</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -203,12 +215,51 @@ const PedidosCancelados = () => {
                       ))}
                     </Box>
                   </TableCell>
+                  <TableCell align="center">
+                    <Tooltip title="Imprimir cuenta">
+                      <IconButton
+                        size="small"
+                        onClick={() => setSelectedPedidoForPrint(pedido)}
+                      >
+                        <PrintIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </TableContainer>
       )}
+
+      {selectedPedidoForPrint && (
+        <CuentaModal
+          open={!!selectedPedidoForPrint}
+          onClose={() => setSelectedPedidoForPrint(null)}
+          productos={selectedPedidoForPrint.productos || []}
+          total={selectedPedidoForPrint.total || 0}
+          onSuccess={() => setSuccess('Cuenta impresa correctamente')}
+          onError={(msg) => setError(msg)}
+        />
+      )}
+
+      <Snackbar
+        open={!!error}
+        autoHideDuration={3000}
+        onClose={() => setError(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert severity="error">{error}</Alert>
+      </Snackbar>
+
+      <Snackbar
+        open={!!success}
+        autoHideDuration={3000}
+        onClose={() => setSuccess(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert severity="success">{success}</Alert>
+      </Snackbar>
     </Paper>
   );
 };

@@ -7,23 +7,8 @@ const crearPedido = async (nombre, id_usuario) => {
       'INSERT INTO pedidos (nombre, id_usuario, estado) VALUES (?, ?, \'pendiente\')',
       [nombre, id_usuario]
     );
-    
-    // Obtener el pedido recién creado
-    const [pedido] = await pool.execute(
-      `SELECT 
-        p.id, 
-        p.nombre, 
-        p.fecha, 
-        p.estado,
-        p.id_usuario,
-        u.nombre as nombre_usuario
-       FROM pedidos p
-       LEFT JOIN usuarios u ON p.id_usuario = u.id
-       WHERE p.id = ?`,
-      [result.insertId]
-    );
 
-    return pedido[0];
+    return { id: result.insertId, nombre, id_usuario, estado: 'pendiente', fecha: new Date() };
   } catch (error) {
     console.error('Error en crearPedido:', error.message);
     throw error;
@@ -171,7 +156,7 @@ const obtenerPedidosDiaConDetalles = async (estado = 'pendiente') => {
         p.id AS pedido_id, p.nombre, p.fecha, p.estado, p.id_usuario,
         u.nombre AS nombre_usuario,
         c.id AS contiene_id, c.id_producto, c.cantidad, c.anulado,
-        pr.nombre AS producto_nombre, pr.precio,
+        pr.nombre AS producto_nombre, COALESCE(c.precio, pr.precio) AS precio,
         pg.id AS pago_id, pg.monto, pg.metodo
       FROM pedidos p
       LEFT JOIN usuarios u ON p.id_usuario = u.id

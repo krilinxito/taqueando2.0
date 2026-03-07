@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext, useCallback } from 'react';
+import React, { useEffect, useState, useContext, useCallback, useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -33,6 +33,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
+import PrintIcon from '@mui/icons-material/Print';
 import { useAuth } from '../context/AuthContext';
 
 // Importaciones corregidas
@@ -42,13 +43,14 @@ import { crearPedido, editarPedido, obtenerPedidosDiaConDetalles } from '../API/
 import { obtenerProductos } from '../API/productosApi';
 import ProductosModal from './ProductosModal';
 import PagosModal from './PagosModal';
+import CuentaModal from './CuentaModal';
+import PrinterStatusIndicator from './PrinterStatusIndicator';
 import { formatearFechaHora } from '../utils/fecha';
 
 const PedidosDashboard = () => {
   const { user } = useAuth();
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
-  const [filteredProducts, setFilteredProducts] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [newOrderName, setNewOrderName] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -62,6 +64,7 @@ const PedidosDashboard = () => {
   const [productosModalOpen, setProductosModalOpen] = useState(false);
   const [pagosModalOpen, setPagosModalOpen] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
+  const [selectedOrderForPrint, setSelectedOrderForPrint] = useState(null);
   const safeNumber = (value) => {
     if (value === null || value === undefined) return 0;
     const num = Number(value);
@@ -314,22 +317,28 @@ const PedidosDashboard = () => {
     ));
   };
 
-  useEffect(() => {
-    if (!products.length) return;
-    
-    const filtered = products.filter(product => 
+  const selectedOrder = useMemo(
+    () => orders.find(o => o.id === selectedOrderId),
+    [orders, selectedOrderId]
+  );
+
+  const filteredProducts = useMemo(() => {
+    if (!products.length) return [];
+    return products.filter(product =>
       product.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.descripcion?.toLowerCase().includes(searchTerm.toLowerCase())
     );
-    setFilteredProducts(filtered);
   }, [searchTerm, products]);
 
   return (
     <Paper sx={{ p: 3, m: 2 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4">
-          Pedidos Pendientes
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography variant="h4">
+            Pedidos Pendientes
+          </Typography>
+          <PrinterStatusIndicator />
+        </Box>
         <Box>
           <Tooltip title="Actualizar datos">
             <span>
@@ -375,6 +384,7 @@ const PedidosDashboard = () => {
                 <TableCell align="right">Total</TableCell>
                 <TableCell align="right">Pagado</TableCell>
                 <TableCell align="right">Pendiente</TableCell>
+                <TableCell align="center">Acciones</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -484,6 +494,16 @@ const PedidosDashboard = () => {
                       <Typography variant="h6" color={order.pendiente > 0 ? "error.main" : "success.main"}>
                       ${Math.max(0, Number(order.pendiente || 0)).toFixed(2)}
                       </Typography>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Tooltip title="Imprimir cuenta">
+                        <IconButton
+                          size="small"
+                          onClick={() => setSelectedOrderForPrint(order)}
+                        >
+                          <PrintIcon />
+                        </IconButton>
+                      </Tooltip>
                     </TableCell>
                   </TableRow>
               ))}
@@ -633,23 +653,34 @@ const PedidosDashboard = () => {
         </DialogActions>
       </Dialog>
 
-      {selectedOrderId && (
+      {selectedOrderId && selectedOrder && (
         <PagosModal
           open={pagosModalOpen}
           onClose={() => {
             setPagosModalOpen(false);
             setSelectedOrderId(null);
           }}
-          pagos={orders.find(o => o.id === selectedOrderId)?.pagos || []}
+          pagos={selectedOrder.pagos || []}
           onAddPago={(pagoData) => handleAddPayment(selectedOrderId, pagoData.monto, pagoData.metodo)}
-          totalPedido={orders.find(o => o.id === selectedOrderId)?.total || 0}
-          totalPagado={orders.find(o => o.id === selectedOrderId)?.pagado || 0}
+          totalPedido={selectedOrder.total || 0}
+          totalPagado={selectedOrder.pagado || 0}
         />
       )}
 
-      <Snackbar 
-        open={!!error} 
-        autoHideDuration={3000} 
+      {selectedOrderForPrint && (
+        <CuentaModal
+          open={!!selectedOrderForPrint}
+          onClose={() => setSelectedOrderForPrint(null)}
+          productos={selectedOrderForPrint.productos || []}
+          total={selectedOrderForPrint.total || 0}
+          onSuccess={() => showSuccess('Cuenta impresa correctamente')}
+          onError={(msg) => showError(msg)}
+        />
+      )}
+
+      <Snackbar
+        open={!!error}
+        autoHideDuration={3000}
         onClose={() => setError(null)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >

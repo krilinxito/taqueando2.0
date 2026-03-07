@@ -66,53 +66,53 @@ const rangoParams = (inicio, fin) => [inicio, fin];
 const obtenerDatosBase = async (inicio, fin) => {
   const params = rangoParams(inicio, fin);
 
-  const [totales] = await pool.query(
-    `
-      SELECT
-        DATE(CONVERT_TZ(p.fecha,'+00:00','-04:00')) AS fecha,
-        COUNT(DISTINCT p.id) AS total_pedidos,
-        COALESCE(SUM(pg.monto), 0) AS total_general
-      FROM pedidos p
-      LEFT JOIN pagos pg ON pg.id_pedido = p.id
-      ${rangoSQL}
-      GROUP BY DATE(CONVERT_TZ(p.fecha,'+00:00','-04:00'))
-    `,
-    [...params]
-  );
-
-  const [porMetodo] = await pool.query(
-    `
-      SELECT
-        COALESCE(pg.metodo, 'desconocido') AS metodo,
-        COUNT(pg.id) AS cantidad,
-        COALESCE(SUM(pg.monto), 0) AS total
-      FROM pedidos p
-      LEFT JOIN pagos pg ON pg.id_pedido = p.id
-      ${rangoSQL}
-      GROUP BY metodo
-    `,
-    params
-  );
-
-  const [pagos] = await pool.query(
-    `
-      SELECT
-        pg.id,
-        pg.id_pedido,
-        pg.monto,
-        pg.metodo,
-        DATE_FORMAT(CONVERT_TZ(pg.hora,'+00:00','-04:00'), '%Y-%m-%d %H:%i:%s') AS hora,
-        p.estado AS estado_pedido,
-        p.nombre AS nombre_pedido,
-        u.nombre AS nombre_usuario
-      FROM pagos pg
-      JOIN pedidos p ON p.id = pg.id_pedido
-      LEFT JOIN usuarios u ON u.id = p.id_usuario
-      ${rangoSQL}
-      ORDER BY pg.hora ASC
-    `,
-    [...params]
-  );
+  const [[totales], [porMetodo], [pagos]] = await Promise.all([
+    pool.query(
+      `
+        SELECT
+          DATE(CONVERT_TZ(p.fecha,'+00:00','-04:00')) AS fecha,
+          COUNT(DISTINCT p.id) AS total_pedidos,
+          COALESCE(SUM(pg.monto), 0) AS total_general
+        FROM pedidos p
+        LEFT JOIN pagos pg ON pg.id_pedido = p.id
+        ${rangoSQL}
+        GROUP BY DATE(CONVERT_TZ(p.fecha,'+00:00','-04:00'))
+      `,
+      [...params]
+    ),
+    pool.query(
+      `
+        SELECT
+          COALESCE(pg.metodo, 'desconocido') AS metodo,
+          COUNT(pg.id) AS cantidad,
+          COALESCE(SUM(pg.monto), 0) AS total
+        FROM pedidos p
+        LEFT JOIN pagos pg ON pg.id_pedido = p.id
+        ${rangoSQL}
+        GROUP BY metodo
+      `,
+      params
+    ),
+    pool.query(
+      `
+        SELECT
+          pg.id,
+          pg.id_pedido,
+          pg.monto,
+          pg.metodo,
+          DATE_FORMAT(CONVERT_TZ(pg.hora,'+00:00','-04:00'), '%Y-%m-%d %H:%i:%s') AS hora,
+          p.estado AS estado_pedido,
+          p.nombre AS nombre_pedido,
+          u.nombre AS nombre_usuario
+        FROM pagos pg
+        JOIN pedidos p ON p.id = pg.id_pedido
+        LEFT JOIN usuarios u ON u.id = p.id_usuario
+        ${rangoSQL}
+        ORDER BY pg.hora ASC
+      `,
+      [...params]
+    ),
+  ]);
 
   const totalesRow = totales[0] || {};
 
