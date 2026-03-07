@@ -673,6 +673,7 @@ const PedidosDashboard = () => {
           onClose={() => setSelectedOrderForPrint(null)}
           productos={selectedOrderForPrint.productos || []}
           total={selectedOrderForPrint.total || 0}
+          nombrePedido={selectedOrderForPrint.nombre}
           onSuccess={() => showSuccess('Cuenta impresa correctamente')}
           onError={(msg) => showError(msg)}
         />

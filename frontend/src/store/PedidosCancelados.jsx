@@ -238,6 +238,7 @@ const PedidosCancelados = () => {
           onClose={() => setSelectedPedidoForPrint(null)}
           productos={selectedPedidoForPrint.productos || []}
           total={selectedPedidoForPrint.total || 0}
+          nombrePedido={selectedPedidoForPrint.nombre}
           onSuccess={() => setSuccess('Cuenta impresa correctamente')}
           onError={(msg) => setError(msg)}
         />

@@ -20,7 +20,7 @@ import {
 import PrintIcon from '@mui/icons-material/Print';
 import { printReceipt } from '../utils/printService';
 
-const CuentaModal = ({ open, onClose, productos = [], total, onSuccess, onError }) => {
+const CuentaModal = ({ open, onClose, productos = [], total, nombrePedido, onSuccess, onError }) => {
   const [printing, setPrinting] = useState(false);
   const [printError, setPrintError] = useState(null);
 
@@ -48,7 +48,8 @@ const CuentaModal = ({ open, onClose, productos = [], total, onSuccess, onError 
           cantidad: p.cantidad,
           precio: Number(p.precio),
         })),
-        total
+        total,
+        nombrePedido
       );
       onSuccess?.();
     } catch (err) {

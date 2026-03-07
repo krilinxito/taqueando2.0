@@ -6,9 +6,9 @@ const { SerialPort } = require('serialport');
 const EscPosEncoder = require('esc-pos-encoder');
 const config = require('./config.json');
 
-function buildReceiptBytes(productos, total) {
+function buildReceiptBytes(productos, total, nombrePedido) {
   const encoder = new EscPosEncoder();
-  const width = config.paperWidth;
+  const width = config.paperWidth; // 32 chars for 58mm (48mm printable)
 
   encoder.initialize();
 
@@ -16,34 +16,34 @@ function buildReceiptBytes(productos, total) {
   encoder.align('center');
   encoder.bold(true);
   encoder.line('CUENTA');
+  if (nombrePedido) {
+    encoder.line(nombrePedido);
+  }
   encoder.bold(false);
+  encoder.align('left');
   encoder.line('='.repeat(width));
 
   // Productos
   encoder.align('left');
   for (const p of productos) {
-    const nombre = p.nombre || 'Producto';
+    const nombre = (p.nombre || 'Producto').substring(0, width);
     const cant = Number(p.cantidad) || 0;
     const precio = Number(p.precio) || 0;
     const subtotal = cant * precio;
 
-    const cantStr = `x${cant}`;
-    const precioStr = `$${precio.toFixed(2)}`;
-    const subtotalStr = `$${subtotal.toFixed(2)}`;
-    const detalle = `  ${cantStr}  ${precioStr}`;
-    const rightPart = `  ${subtotalStr}`;
+    const leftPart = ` x${cant}`;
+    const rightPart = `$${subtotal.toFixed(2)}`;
+    const spacesNeeded = Math.max(1, width - leftPart.length - rightPart.length);
 
     encoder.line(nombre);
-    // Segunda linea con detalles alineados
-    const spacesNeeded = Math.max(1, width - detalle.length - rightPart.length);
-    encoder.line(detalle + ' '.repeat(spacesNeeded) + rightPart);
+    encoder.line(leftPart + ' '.repeat(spacesNeeded) + rightPart);
   }
 
   // Total
   encoder.line('-'.repeat(width));
-  encoder.align('right');
+  encoder.align('left');
   encoder.bold(true);
-  encoder.line(`TOTAL: $${Number(total).toFixed(2)}`);
+  encoder.line(`TOTAL: $ ${Number(total).toFixed(2)}`);
   encoder.bold(false);
   encoder.line('='.repeat(width));
 
@@ -157,14 +157,14 @@ const handler = async (req, res) => {
 
   if (req.method === 'POST' && req.url === '/print') {
     try {
-      const { productos, total } = await parseBody(req);
+      const { productos, total, nombrePedido } = await parseBody(req);
 
       if (!Array.isArray(productos) || total === undefined) {
         sendJson(res, 400, { success: false, error: 'Se requiere productos (array) y total (number)' });
         return;
       }
 
-      const bytes = buildReceiptBytes(productos, total);
+      const bytes = buildReceiptBytes(productos, total, nombrePedido);
       await printToSerial(bytes);
       sendJson(res, 200, { success: true });
     } catch (err) {
