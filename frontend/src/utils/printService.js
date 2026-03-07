@@ -1,4 +1,4 @@
-const PRINT_AGENT_URL = 'http://localhost:9876';
+const PRINT_AGENT_URL = 'https://localhost:9876';
 
 export async function printReceipt(productos, total) {
   const controller = new AbortController();

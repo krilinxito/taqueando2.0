@@ -1,4 +1,7 @@
 const http = require('http');
+const https = require('https');
+const fs = require('fs');
+const path = require('path');
 const { SerialPort } = require('serialport');
 const EscPosEncoder = require('esc-pos-encoder');
 const config = require('./config.json');
@@ -105,7 +108,7 @@ function sendJson(res, status, data) {
   res.end(JSON.stringify(data));
 }
 
-const server = http.createServer(async (req, res) => {
+const handler = async (req, res) => {
   // CORS preflight
   if (req.method === 'OPTIONS') {
     sendJson(res, 204, {});
@@ -167,9 +170,29 @@ const server = http.createServer(async (req, res) => {
   }
 
   sendJson(res, 404, { success: false, error: 'Ruta no encontrada' });
-});
+};
 
-server.listen(config.port, '127.0.0.1', () => {
-  console.log(`Agente de impresion corriendo en http://localhost:${config.port}`);
-  console.log(`Puerto impresora: ${config.printerPort} @ ${config.baudRate} baud`);
-});
+// Check if SSL certs exist for HTTPS
+const certPath = path.join(__dirname, 'cert.pem');
+const keyPath = path.join(__dirname, 'key.pem');
+const hasSSL = fs.existsSync(certPath) && fs.existsSync(keyPath);
+
+if (hasSSL) {
+  const sslOptions = {
+    key: fs.readFileSync(keyPath),
+    cert: fs.readFileSync(certPath),
+  };
+  const server = https.createServer(sslOptions, handler);
+  server.listen(config.port, '127.0.0.1', () => {
+    console.log(`Agente de impresion (HTTPS) corriendo en https://localhost:${config.port}`);
+    console.log(`Puerto impresora: ${config.printerPort} @ ${config.baudRate} baud`);
+  });
+} else {
+  console.warn('AVISO: No se encontraron cert.pem/key.pem. Ejecute generate-cert.bat para habilitar HTTPS.');
+  console.warn('Sin HTTPS, el agente no funcionara desde sitios HTTPS (como Netlify).\n');
+  const server = http.createServer(handler);
+  server.listen(config.port, '127.0.0.1', () => {
+    console.log(`Agente de impresion (HTTP) corriendo en http://localhost:${config.port}`);
+    console.log(`Puerto impresora: ${config.printerPort} @ ${config.baudRate} baud`);
+  });
+}
