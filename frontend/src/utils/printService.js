@@ -1,6 +1,6 @@
 const PRINT_AGENT_URL = 'https://localhost:9876';
 
-export async function printReceipt(productos, total, nombrePedido) {
+export async function printReceipt(productos, total, nombrePedido, idPedido) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5000);
 
@@ -8,7 +8,7 @@ export async function printReceipt(productos, total, nombrePedido) {
     const res = await fetch(`${PRINT_AGENT_URL}/print`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ productos, total, nombrePedido }),
+      body: JSON.stringify({ productos, total, nombrePedido, idPedido }),
       signal: controller.signal,
     });
 

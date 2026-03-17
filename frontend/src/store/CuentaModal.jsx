@@ -20,7 +20,7 @@ import {
 import PrintIcon from '@mui/icons-material/Print';
 import { printReceipt } from '../utils/printService';
 
-const CuentaModal = ({ open, onClose, productos = [], total, nombrePedido, onSuccess, onError }) => {
+const CuentaModal = ({ open, onClose, productos = [], total, nombrePedido, idPedido, onSuccess, onError }) => {
   const [printing, setPrinting] = useState(false);
   const [printError, setPrintError] = useState(null);
 
@@ -49,7 +49,8 @@ const CuentaModal = ({ open, onClose, productos = [], total, nombrePedido, onSuc
           precio: Number(p.precio),
         })),
         total,
-        nombrePedido
+        nombrePedido,
+        idPedido
       );
       onSuccess?.();
     } catch (err) {
@@ -63,7 +64,9 @@ const CuentaModal = ({ open, onClose, productos = [], total, nombrePedido, onSuc
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Cuenta</DialogTitle>
+      <DialogTitle>
+        Cuenta{idPedido ? ` — Pedido #${idPedido}` : ''}{nombrePedido ? ` · ${nombrePedido}` : ''}
+      </DialogTitle>
       <DialogContent>
         <TableContainer>
           <Table size="small">

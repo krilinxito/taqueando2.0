@@ -6,7 +6,7 @@ const { SerialPort } = require('serialport');
 const EscPosEncoder = require('esc-pos-encoder');
 const config = require('./config.json');
 
-function buildReceiptBytes(productos, total, nombrePedido) {
+function buildReceiptBytes(productos, total, nombrePedido, idPedido) {
   const encoder = new EscPosEncoder();
   const width = config.paperWidth; // 32 chars for 58mm (48mm printable)
 
@@ -20,6 +20,9 @@ function buildReceiptBytes(productos, total, nombrePedido) {
     encoder.line(nombrePedido);
   }
   encoder.bold(false);
+  if (idPedido) {
+    encoder.line(`Pedido #${idPedido}`);
+  }
   encoder.align('left');
   encoder.line('='.repeat(width));
 
@@ -157,14 +160,14 @@ const handler = async (req, res) => {
 
   if (req.method === 'POST' && req.url === '/print') {
     try {
-      const { productos, total, nombrePedido } = await parseBody(req);
+      const { productos, total, nombrePedido, idPedido } = await parseBody(req);
 
       if (!Array.isArray(productos) || total === undefined) {
         sendJson(res, 400, { success: false, error: 'Se requiere productos (array) y total (number)' });
         return;
       }
 
-      const bytes = buildReceiptBytes(productos, total, nombrePedido);
+      const bytes = buildReceiptBytes(productos, total, nombrePedido, idPedido);
       await printToSerial(bytes);
       sendJson(res, 200, { success: true });
     } catch (err) {
