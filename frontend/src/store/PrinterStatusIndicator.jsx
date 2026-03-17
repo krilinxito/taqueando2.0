@@ -16,7 +16,7 @@ const PrinterStatusIndicator = () => {
     };
 
     check();
-    const interval = setInterval(check, 30000);
+    const interval = setInterval(check, 10000);
     return () => clearInterval(interval);
   }, []);
 

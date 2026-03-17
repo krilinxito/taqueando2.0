@@ -32,7 +32,7 @@ exit /b 1
 :found
 echo Usando: !OPENSSL_CMD!
 echo.
-"!OPENSSL_CMD!" req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 3650 -nodes -subj "//CN=localhost"
+"!OPENSSL_CMD!" req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 3650 -nodes -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
 if !errorlevel! neq 0 (
     echo.
     echo ERROR: No se pudo generar el certificado.
@@ -43,7 +43,11 @@ if !errorlevel! neq 0 (
 echo.
 echo Certificado generado: cert.pem y key.pem
 echo.
-echo IMPORTANTE: Abra https://localhost:9876/status en su navegador
-echo y acepte el certificado para que el sitio pueda conectarse.
+echo SIGUIENTE PASO: Instalar cert.pem en Edge/Chrome como CA de confianza:
+echo   1. Abra Edge y vaya a edge://settings/privacy
+echo   2. Baje hasta "Administrar certificados" y abra
+echo   3. Vaya a "Entidades de certificacion raiz de confianza" -^> Importar
+echo   4. Seleccione el archivo cert.pem de esta carpeta
+echo   5. Reinicie Edge y el agente (iniciar.bat)
 echo.
 pause
