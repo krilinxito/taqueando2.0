@@ -189,22 +189,40 @@ const certPath = path.join(__dirname, 'cert.pem');
 const keyPath = path.join(__dirname, 'key.pem');
 const hasSSL = fs.existsSync(certPath) && fs.existsSync(keyPath);
 
+// Escuchar en ambos loopbacks: 127.0.0.1 (IPv4) y ::1 (IPv6).
+// En Windows, 'localhost' resuelve a ::1 primero; si solo escuchamos en IPv4,
+// el intento por IPv6 puede quedar colgado (firewall/proxy) y dar ERR_CONNECTION_TIMED_OUT.
+// Mantenemos solo loopback para no exponer el agente a la red local.
+const LOOPBACK_HOSTS = ['127.0.0.1', '::1'];
+
+function startServer(createServer, scheme) {
+  for (const host of LOOPBACK_HOSTS) {
+    const server = createServer();
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.error(`ERROR: el puerto ${config.port} ya esta en uso (${host}).`);
+      } else if (err.code === 'EAFNOSUPPORT' || err.code === 'EADDRNOTAVAIL') {
+        // El sistema no soporta esa familia (p.ej. IPv6 deshabilitado): se ignora.
+        console.warn(`Aviso: no se pudo escuchar en ${host} (${err.code}), se omite.`);
+      } else {
+        console.error(`Error al escuchar en ${host}:`, err.message);
+      }
+    });
+    server.listen(config.port, host, () => {
+      console.log(`Agente de impresion (${scheme}) corriendo en ${scheme.toLowerCase()}://${host === '::1' ? '[::1]' : host}:${config.port}`);
+    });
+  }
+  console.log(`Puerto impresora: ${config.printerPort} @ ${config.baudRate} baud`);
+}
+
 if (hasSSL) {
   const sslOptions = {
     key: fs.readFileSync(keyPath),
     cert: fs.readFileSync(certPath),
   };
-  const server = https.createServer(sslOptions, handler);
-  server.listen(config.port, '127.0.0.1', () => {
-    console.log(`Agente de impresion (HTTPS) corriendo en https://localhost:${config.port}`);
-    console.log(`Puerto impresora: ${config.printerPort} @ ${config.baudRate} baud`);
-  });
+  startServer(() => https.createServer(sslOptions, handler), 'HTTPS');
 } else {
   console.warn('AVISO: No se encontraron cert.pem/key.pem. Ejecute generate-cert.bat para habilitar HTTPS.');
   console.warn('Sin HTTPS, el agente no funcionara desde sitios HTTPS (como Netlify).\n');
-  const server = http.createServer(handler);
-  server.listen(config.port, '127.0.0.1', () => {
-    console.log(`Agente de impresion (HTTP) corriendo en http://localhost:${config.port}`);
-    console.log(`Puerto impresora: ${config.printerPort} @ ${config.baudRate} baud`);
-  });
+  startServer(() => http.createServer(handler), 'HTTP');
 }
