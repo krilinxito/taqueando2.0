@@ -6,6 +6,34 @@ const { SerialPort } = require('serialport');
 const EscPosEncoder = require('esc-pos-encoder');
 const config = require('./config.json');
 
+// --- Cache de puertos serie ---
+// SerialPort.list() puede colgarse en algunas maquinas (driver USB-serie, ahorro
+// de energia de Windows). Si lo llamamos en cada /status, una llamada trabada deja
+// la respuesta HTTP colgada y el frontend marca "Agente no detectado".
+// Por eso /status responde al instante usando este cache, que se refresca en
+// segundo plano con un timeout duro para que nunca bloquee.
+let cachedPorts = [];
+let scanInProgress = false;
+let lastScan = 0;
+// No re-escanear los puertos mas seguido que esto, aunque /status se consulte mas
+// a menudo. Asi el frontend puede preguntar cada 10s sin forzar enumeraciones USB
+// constantes (que es lo unico costoso / lo que puede trabarse).
+const MIN_SCAN_INTERVAL_MS = 15000;
+
+function refreshPortsCache() {
+  if (scanInProgress) return;
+  if (Date.now() - lastScan < MIN_SCAN_INTERVAL_MS) return;
+  scanInProgress = true;
+  lastScan = Date.now();
+  Promise.race([
+    SerialPort.list(),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('serialport-list-timeout')), 3000)),
+  ])
+    .then((ports) => { cachedPorts = ports; })
+    .catch(() => { /* mantenemos el cache anterior */ })
+    .finally(() => { scanInProgress = false; });
+}
+
 function buildReceiptBytes(productos, total, nombrePedido, idPedido) {
   const encoder = new EscPosEncoder();
   const width = config.paperWidth; // 32 chars for 58mm (48mm printable)
@@ -120,29 +148,26 @@ const handler = async (req, res) => {
   }
 
   if (req.method === 'GET' && req.url === '/status') {
-    try {
-      const ports = await SerialPort.list();
-      const found = ports.some(p => p.path === config.printerPort);
-      sendJson(res, 200, {
-        success: true,
-        status: 'running',
-        printerPort: config.printerPort,
-        printerConnected: found,
-      });
-    } catch {
-      sendJson(res, 200, {
-        success: true,
-        status: 'running',
-        printerPort: config.printerPort,
-        printerConnected: false,
-      });
-    }
+    // Respuesta inmediata: el agente esta vivo si contesta. La deteccion de la
+    // impresora sale del cache (best-effort) y disparamos un refresco en segundo plano.
+    refreshPortsCache();
+    const found = cachedPorts.some(p => p.path === config.printerPort);
+    sendJson(res, 200, {
+      success: true,
+      status: 'running',
+      printerPort: config.printerPort,
+      printerConnected: found,
+    });
     return;
   }
 
   if (req.method === 'GET' && req.url === '/ports') {
     try {
-      const ports = await SerialPort.list();
+      const ports = await Promise.race([
+        SerialPort.list(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('serialport-list-timeout')), 3000)),
+      ]);
+      cachedPorts = ports;
       sendJson(res, 200, {
         success: true,
         ports: ports.map(p => ({
@@ -213,6 +238,7 @@ function startServer(createServer, scheme) {
     });
   }
   console.log(`Puerto impresora: ${config.printerPort} @ ${config.baudRate} baud`);
+  refreshPortsCache();
 }
 
 if (hasSSL) {
