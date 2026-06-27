@@ -1,4 +1,8 @@
-const PRINT_AGENT_URL = 'https://localhost:9876';
+// Usamos 127.0.0.1 (IPv4) en vez de 'localhost' a proposito:
+// en Windows 'localhost' resuelve a ::1 (IPv6) primero, y si el agente/firewall
+// no responde por IPv6 el navegador da ERR_CONNECTION_TIMED_OUT (agente "no detectado").
+// El certificado del agente incluye IP:127.0.0.1 en su SAN, asi que no hay error de TLS.
+const PRINT_AGENT_URL = 'https://127.0.0.1:9876';
 
 export async function printReceipt(productos, total, nombrePedido, idPedido) {
   const controller = new AbortController();
