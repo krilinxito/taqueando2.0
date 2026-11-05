@@ -43,9 +43,13 @@ function buildReceiptBytes(productos, total, nombrePedido, idPedido) {
   // Titulo centrado
   encoder.align('center');
   encoder.bold(true);
+  encoder.size(2, 2);
   encoder.line('CUENTA');
+  encoder.size(1, 1);
   if (nombrePedido) {
+    encoder.height(2);
     encoder.line(nombrePedido);
+    encoder.height(1);
   }
   encoder.bold(false);
   if (idPedido) {
@@ -67,15 +71,27 @@ function buildReceiptBytes(productos, total, nombrePedido, idPedido) {
     const spacesNeeded = Math.max(1, width - leftPart.length - rightPart.length);
 
     encoder.line(nombre);
+    // Doble alto (mismo ancho) para que cantidades y precios se lean bien
+    // sin perder las columnas de `width` caracteres.
+    encoder.bold(true);
+    encoder.height(2);
     encoder.line(leftPart + ' '.repeat(spacesNeeded) + rightPart);
+    encoder.height(1);
+    encoder.bold(false);
   }
 
   // Total
   encoder.line('-'.repeat(width));
-  encoder.align('left');
+  // Total a doble ancho y doble alto: cada caracter ocupa 2 columnas,
+  // asi que caben width/2 caracteres por linea.
+  encoder.align('center');
   encoder.bold(true);
-  encoder.line(`TOTAL: $ ${Number(total).toFixed(2)}`);
+  encoder.size(2, 2);
+  encoder.line('TOTAL');
+  encoder.line(`$${Number(total).toFixed(2)}`);
+  encoder.size(1, 1);
   encoder.bold(false);
+  encoder.align('left');
   encoder.line('='.repeat(width));
 
   // Pie
